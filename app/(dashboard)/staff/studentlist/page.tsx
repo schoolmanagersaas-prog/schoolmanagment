@@ -353,11 +353,11 @@ export default async function StaffStudentListPage({ searchParams }: StudentList
                           return (
                             <div className="space-y-0.5">
                               <div className="font-semibold tabular-nums text-foreground">
-                                {rate.toLocaleString("ar-EG")}%
+                                {rate.toLocaleString("en-US")}%
                               </div>
                               <div className="text-xs text-muted-foreground">
-                                {presentDays.toLocaleString("ar-EG")} يوم حضور من أصل{" "}
-                                {dim.toLocaleString("ar-EG")} يومًا في الشهر
+                                {presentDays.toLocaleString("en-US")} يوم حضور من أصل{" "}
+                                {dim.toLocaleString("en-US")} يومًا في الشهر
                               </div>
                             </div>
                           );

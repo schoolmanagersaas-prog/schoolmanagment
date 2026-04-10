@@ -62,6 +62,7 @@ export default function FinanceChart({ months, totalRevenue, totalExpenses, year
               tick={{ fill: "#6b7280", fontSize: 12 }}
               tickLine={false}
               tickMargin={20}
+              tickFormatter={(v) => Number(v).toLocaleString("en-US")}
             />
             <Tooltip
               contentStyle={{
@@ -70,6 +71,11 @@ export default function FinanceChart({ months, totalRevenue, totalExpenses, year
                 borderRadius: "8px",
                 boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
               }}
+              formatter={(value) =>
+                typeof value === "number"
+                  ? value.toLocaleString("en-US")
+                  : Number(value).toLocaleString("en-US")
+              }
             />
             <Legend
               align="center"
@@ -111,7 +117,7 @@ export default function FinanceChart({ months, totalRevenue, totalExpenses, year
               <span className="text-sm font-medium text-gray-600">إجمالي الإيرادات</span>
             </div>
             <h3 className="text-2xl font-bold text-sky tabular-nums">
-              {totalRevenue.toLocaleString("ar-EG")}
+              {totalRevenue.toLocaleString("en-US")}
             </h3>
           </div>
           <div className="text-center">
@@ -120,7 +126,7 @@ export default function FinanceChart({ months, totalRevenue, totalExpenses, year
               <span className="text-sm font-medium text-gray-600">إجمالي المصروفات</span>
             </div>
             <h3 className="text-2xl font-bold text-Yellow tabular-nums">
-              {totalExpenses.toLocaleString("ar-EG")}
+              {totalExpenses.toLocaleString("en-US")}
             </h3>
           </div>
         </div>

@@ -14,6 +14,7 @@ function formatBadgeDate(): string {
       year: "numeric",
       month: "2-digit",
       day: "2-digit",
+      numberingSystem: "latn",
     }).format(new Date());
   } catch {
     return new Date().toISOString().slice(0, 10).replaceAll("-", "/");
@@ -34,7 +35,7 @@ export default function UserCard({ type, count, badgeLabel }: UserCardProps) {
         </div>
       </div>
       <h1 className="text-2xl font-semibold my-4 transition-colors duration-300">
-        {count.toLocaleString("ar-EG")}
+        {count.toLocaleString("en-US")}
       </h1>
       <h2 className="capitalize text-sm font-medium text-gray-500 text-semibold transition-all duration-200 hover:text-purple-600 hover:translate-x-2">
         {type}

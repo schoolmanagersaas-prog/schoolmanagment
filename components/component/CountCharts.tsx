@@ -65,14 +65,14 @@ export default function CountCharts({ payload }: CountChartsProps) {
         <div className="flex flex-col items-center gap-2">
           <div className="w-5 h-5 bg-sky rounded-full" />
           <h1 className="font-bold text-xl text-gray-800 tabular-nums">
-            {p.maleCount.toLocaleString("ar-EG")}
+            {p.maleCount.toLocaleString("en-US")}
           </h1>
           <h2 className="text-xs text-gray-500">ذكور ({p.malePercent}%)</h2>
         </div>
         <div className="flex flex-col items-center gap-2">
           <div className="w-5 h-5 bg-Yellow rounded-full" />
           <h1 className="font-bold text-xl text-gray-800 tabular-nums">
-            {p.femaleCount.toLocaleString("ar-EG")}
+            {p.femaleCount.toLocaleString("en-US")}
           </h1>
           <h2 className="text-xs text-gray-500">إناث ({p.femalePercent}%)</h2>
         </div>

@@ -46,7 +46,12 @@ export default function Attendance({ data }: AttendanceProps) {
           <BarChart data={chartData} barSize={20}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#ddd" />
             <XAxis dataKey="name" axisLine={false} tick={{ fill: "#6b7280" }} tickLine={false} />
-            <YAxis axisLine={false} tick={{ fill: "#6b7280" }} tickLine={false} />
+            <YAxis
+              axisLine={false}
+              tick={{ fill: "#6b7280" }}
+              tickLine={false}
+              tickFormatter={(v) => Number(v).toLocaleString("en-US")}
+            />
             <Tooltip
               contentStyle={{
                 borderRadius: "10px",
@@ -54,6 +59,11 @@ export default function Attendance({ data }: AttendanceProps) {
                 backgroundColor: "white",
                 boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
               }}
+              formatter={(value) =>
+                typeof value === "number"
+                  ? value.toLocaleString("en-US")
+                  : Number(value).toLocaleString("en-US")
+              }
             />
             <Legend
               align="right"

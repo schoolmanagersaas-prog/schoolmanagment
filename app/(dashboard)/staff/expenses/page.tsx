@@ -175,7 +175,7 @@ export default async function StaffExpensesPage({ searchParams }: ExpensesPagePr
   }
 
   const totalDisplay = totalResult.success
-    ? totalResult.total.toLocaleString("ar-EG")
+    ? totalResult.total.toLocaleString("en-US")
     : null;
 
   return (
@@ -223,7 +223,7 @@ export default async function StaffExpensesPage({ searchParams }: ExpensesPagePr
                 summaryResult.netProfit < 0 ? "text-destructive" : ""
               }`}
             >
-              {summaryResult.netProfit.toLocaleString("ar-EG")}
+              {summaryResult.netProfit.toLocaleString("en-US")}
             </p>
           ) : (
             <p className="mt-2 text-sm text-destructive">{summaryResult.message}</p>
@@ -427,7 +427,7 @@ export default async function StaffExpensesPage({ searchParams }: ExpensesPagePr
                         <span>{row.title}</span>
                       </div>
                     </td>
-                    <td className="px-4 py-2 tabular-nums">{row.amount.toLocaleString("ar-EG")}</td>
+                    <td className="px-4 py-2 tabular-nums">{row.amount.toLocaleString("en-US")}</td>
                     <td className="px-4 py-2">
                       {row.canEdit ? (
                         <div className="flex flex-wrap gap-2 justify-end">

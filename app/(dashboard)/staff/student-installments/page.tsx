@@ -295,9 +295,9 @@ export default async function StudentInstallmentsPage({ searchParams }: { search
                       <td className="px-3 py-2">{line.studentName}</td>
                       <td className="px-3 py-2 text-muted-foreground">{line.className ?? "—"}</td>
                       <td className="px-3 py-2 whitespace-nowrap">{line.dueDate}</td>
-                      <td className="px-3 py-2 tabular-nums">{line.totalAmount.toLocaleString("ar-EG")}</td>
-                      <td className="px-3 py-2 tabular-nums">{line.totalPaid.toLocaleString("ar-EG")}</td>
-                      <td className="px-3 py-2 tabular-nums">{line.remaining.toLocaleString("ar-EG")}</td>
+                      <td className="px-3 py-2 tabular-nums">{line.totalAmount.toLocaleString("en-US")}</td>
+                      <td className="px-3 py-2 tabular-nums">{line.totalPaid.toLocaleString("en-US")}</td>
+                      <td className="px-3 py-2 tabular-nums">{line.remaining.toLocaleString("en-US")}</td>
                       <td className="px-3 py-2">
                         {canPay ? (
                           <form action={recordPaymentAction} className="flex flex-wrap items-center gap-1 justify-end">

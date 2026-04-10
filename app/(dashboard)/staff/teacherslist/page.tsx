@@ -303,7 +303,7 @@ export default async function StaffTeachersListPage({ searchParams }: TeachersLi
                       <td className="px-3 py-3 text-muted-foreground">{teacher.subject ?? "—"}</td>
                       <td className="px-3 py-3 text-muted-foreground tabular-nums">{teacher.phone ?? "—"}</td>
                       <td className="px-3 py-3 tabular-nums">
-                        {teacher.salary.toLocaleString("ar-EG", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                        {teacher.salary.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
                       </td>
                       <td className="px-3 py-3 text-center">
                         {(() => {
@@ -324,11 +324,11 @@ export default async function StaffTeachersListPage({ searchParams }: TeachersLi
                           return (
                             <div className="space-y-0.5">
                               <div className="font-semibold tabular-nums text-foreground">
-                                {rate.toLocaleString("ar-EG")}%
+                                {rate.toLocaleString("en-US")}%
                               </div>
                               <div className="text-xs text-muted-foreground">
-                                {presentDays.toLocaleString("ar-EG")} يوم حضور من أصل{" "}
-                                {dim.toLocaleString("ar-EG")} يومًا في الشهر
+                                {presentDays.toLocaleString("en-US")} يوم حضور من أصل{" "}
+                                {dim.toLocaleString("en-US")} يومًا في الشهر
                               </div>
                             </div>
                           );

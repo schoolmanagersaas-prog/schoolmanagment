@@ -328,7 +328,7 @@ export async function updateTeacherInstallment(input: {
   if (amount < paid) {
     return {
       success: false,
-      message: `المبلغ لا يمكن أن يقل عن إجمالي المدفوع (${paid.toLocaleString("ar-EG")}).`,
+      message: `المبلغ لا يمكن أن يقل عن إجمالي المدفوع (${paid.toLocaleString("en-US")}).`,
     };
   }
 

@@ -17,6 +17,7 @@ function formatShortDate(iso: string): string {
       year: "numeric",
       month: "short",
       day: "numeric",
+      numberingSystem: "latn",
     });
   } catch {
     return d;

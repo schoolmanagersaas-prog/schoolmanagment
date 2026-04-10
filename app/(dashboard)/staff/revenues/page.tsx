@@ -167,7 +167,7 @@ export default async function StaffRevenuesPage({ searchParams }: RevenuesPagePr
     redirect(buildRedirectUrl(result.success ? "success" : "error", result.message));
   }
 
-  const totalDisplay = totalResult.success ? totalResult.total.toLocaleString("ar-EG") : null;
+  const totalDisplay = totalResult.success ? totalResult.total.toLocaleString("en-US") : null;
 
   return (
     <div className="w-full max-w-6xl space-y-6" dir="rtl">
@@ -202,7 +202,7 @@ export default async function StaffRevenuesPage({ searchParams }: RevenuesPagePr
           <p className="text-sm font-medium text-muted-foreground">إجمالي إيرادات المدرسة</p>
           {summaryResult.success ? (
             <p className="mt-2 text-3xl font-bold tabular-nums">
-              {summaryResult.totalIncome.toLocaleString("ar-EG")}
+              {summaryResult.totalIncome.toLocaleString("en-US")}
             </p>
           ) : (
             <p className="mt-2 text-sm text-destructive">{summaryResult.message}</p>
@@ -217,7 +217,7 @@ export default async function StaffRevenuesPage({ searchParams }: RevenuesPagePr
           <p className="text-sm font-medium text-muted-foreground">منها: دفعات الطلاب</p>
           {summaryResult.success ? (
             <p className="mt-2 text-2xl font-bold tabular-nums">
-              {summaryResult.paymentsTotal.toLocaleString("ar-EG")}
+              {summaryResult.paymentsTotal.toLocaleString("en-US")}
             </p>
           ) : (
             <p className="mt-2 text-sm text-muted-foreground">—</p>
@@ -395,7 +395,7 @@ export default async function StaffRevenuesPage({ searchParams }: RevenuesPagePr
                         <span>{row.title}</span>
                       </div>
                     </td>
-                    <td className="px-4 py-2 tabular-nums">{row.amount.toLocaleString("ar-EG")}</td>
+                    <td className="px-4 py-2 tabular-nums">{row.amount.toLocaleString("en-US")}</td>
                     <td className="px-4 py-2">
                       {row.canEdit ? (
                         <div className="flex flex-wrap gap-2 justify-end">

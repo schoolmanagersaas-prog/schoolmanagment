@@ -146,7 +146,9 @@ export default async function StaffClassPage({ searchParams }: ClassPageProps) {
                     <td className="px-2 py-2">{classItem.stage || "-"}</td>
                     <td className="px-2 py-2">{classItem.description || "-"}</td>
                     <td className="px-2 py-2">
-                      {new Date(classItem.created_at).toLocaleDateString("ar-EG")}
+                      {new Date(classItem.created_at).toLocaleDateString("ar-EG", {
+                        numberingSystem: "latn",
+                      })}
                     </td>
                   </tr>
                 ))}
