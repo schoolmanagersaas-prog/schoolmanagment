@@ -13,7 +13,8 @@ type StaffLayoutProps = {
 
 const staffMenuItems = [
   { href: "/staff/class", label: "الصفوف" },
-  { href: "/staff/students", label: "الطلاب" },
+  { href: "/staff/students", label: "اضافة طالب" },
+  { href: "/staff/studentlist", label: "قائمة الطلاب" },
 ];
 
 export default async function StaffLayout({ children }: StaffLayoutProps) {

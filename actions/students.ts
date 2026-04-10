@@ -90,6 +90,15 @@ export type UpsertAttendanceInput = {
   status: AttendanceStatus;
 };
 
+export type BackfillAbsentUnmarkedInput = {
+  attendanceDate: string;
+  studentIds: string[];
+};
+
+export type BackfillAbsentUnmarkedResult =
+  | { success: true; message: string; filled: number }
+  | { success: false; message: string; filled: 0 };
+
 export type StudentAttendanceFilter = {
   studentId: string;
   from?: string;
@@ -182,6 +191,17 @@ function parseDateOnly(dateText: string): Date | null {
   return date;
 }
 
+function utcTodayDateString(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+/** تاريخ تقويمي سابق عن «اليوم» بتوقيت UTC (نفس تنسيق الحقول date في الواجهة). */
+function isStrictlyBeforeTodayDate(dateText: string): boolean {
+  if (!parseDateOnly(dateText)) return false;
+  const day = dateText.trim().slice(0, 10);
+  return day < utcTodayDateString();
+}
+
 function computeLateDays(dueDate: string): number {
   const due = parseDateOnly(dueDate);
   if (!due) return 0;
@@ -251,6 +271,7 @@ async function getAuthContext(): Promise<AuthContext> {
 
 function revalidateStudentsViews() {
   revalidatePath("/staff/students");
+  revalidatePath("/staff/studentlist");
   revalidatePath("/staff");
   revalidatePath("/admin");
 }
@@ -627,6 +648,102 @@ export async function upsertStudentAttendance(
 
   revalidateStudentsViews();
   return { success: true, message: "تم حفظ الحضور/الغياب بنجاح." };
+}
+
+/**
+ * لأيام مضت: يسجّل «غائب» تلقائيًا لكل طالب من القائمة لا يملك صفًا في student_attendance لذلك التاريخ.
+ * لا يغيّر الصفوف الموجودة (حاضر/غائب). لا يُنفَّذ لتاريخ اليوم أو المستقبل.
+ */
+export async function backfillAbsentForPastUnmarked(
+  input: BackfillAbsentUnmarkedInput,
+): Promise<BackfillAbsentUnmarkedResult> {
+  const attendanceDate = input.attendanceDate?.trim();
+  if (!parseDateOnly(attendanceDate)) {
+    return { success: false, message: "تاريخ الحضور غير صالح.", filled: 0 };
+  }
+
+  if (!isStrictlyBeforeTodayDate(attendanceDate)) {
+    return {
+      success: true,
+      message: "لا حاجة للتعبئة التلقائية إلا للأيام الماضية.",
+      filled: 0,
+    };
+  }
+
+  const studentIds = [
+    ...new Set(
+      (input.studentIds ?? [])
+        .map((id) => id.trim())
+        .filter((id) => id.length > 0),
+    ),
+  ];
+
+  if (studentIds.length === 0) {
+    return { success: true, message: "لا يوجد طلاب للمعالجة.", filled: 0 };
+  }
+
+  const auth = await getAuthContext();
+  if (!auth.ok) return { success: false, message: auth.message, filled: 0 };
+
+  const supabase = await createClient();
+  const { data: existingRows, error: existingError } = await supabase
+    .from("student_attendance")
+    .select("student_id")
+    .eq("school_id", auth.schoolId)
+    .eq("attendance_date", attendanceDate)
+    .in("student_id", studentIds);
+
+  if (existingError) {
+    return {
+      success: false,
+      message: existingError.message ?? "فشل التحقق من سجلات الحضور.",
+      filled: 0,
+    };
+  }
+
+  const alreadyMarked = new Set(
+    (existingRows ?? []).map((row) => row.student_id as string),
+  );
+  const missingIds = studentIds.filter((id) => !alreadyMarked.has(id));
+
+  if (missingIds.length === 0) {
+    return { success: true, message: "جميع الطلاب لهم سجل لهذا التاريخ.", filled: 0 };
+  }
+
+  const chunkSize = 150;
+  let filled = 0;
+  for (let i = 0; i < missingIds.length; i += chunkSize) {
+    const chunk = missingIds.slice(i, i + chunkSize);
+    const rows = chunk.map((student_id) => ({
+      school_id: auth.schoolId,
+      student_id,
+      attendance_date: attendanceDate,
+      status: "absent" as const,
+    }));
+
+    const { error: insertError } = await supabase.from("student_attendance").insert(rows);
+    if (insertError) {
+      return {
+        success: false,
+        message: insertError.message ?? "فشل تسجيل الغياب التلقائي.",
+        filled,
+      };
+    }
+    filled += chunk.length;
+  }
+
+  if (filled > 0) {
+    revalidateStudentsViews();
+  }
+
+  return {
+    success: true,
+    message:
+      filled > 0
+        ? `تم تسجيل غياب تلقائي لـ ${filled} طالبًا في ${attendanceDate}.`
+        : "لم يُضف أي سجل.",
+    filled,
+  };
 }
 
 export async function getStudentAttendance(
