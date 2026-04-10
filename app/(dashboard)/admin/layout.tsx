@@ -1,16 +1,33 @@
 import { DeployButton } from "@/components/deploy-button";
 import { EnvVarWarning } from "@/components/env-var-warning";
 import { AuthButton } from "@/components/auth-button";
-import { ThemeSwitcher } from "@/components/theme-switcher";
+import { resolveAppRole } from "@/lib/auth/resolve-app-role";
+import { createClient } from "@/lib/supabase/server";
 import { hasEnvVars } from "@/lib/utils";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Suspense } from "react";
 
-export default function ProtectedLayout({
+export default async function ProtectedLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/auth/login");
+  }
+
+  const role = await resolveAppRole(supabase, user.id, user.email);
+
+  if (role !== "owner") {
+    redirect("/staff/class");
+  }
+
   return (
     <main className="min-h-screen flex flex-col items-center">
       <div className="flex-1 w-full flex flex-col gap-20 items-center">
@@ -21,7 +38,7 @@ export default function ProtectedLayout({
                 Dashboard
               </Link>
               <Link
-                href={"/protected/schools"}
+                href={"/admin/schools"}
                 className="text-foreground/80 hover:text-foreground"
               >
                 المدارس

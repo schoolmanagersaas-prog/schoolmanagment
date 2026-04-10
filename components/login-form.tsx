@@ -13,8 +13,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { resolveAppRole } from "@/lib/auth/resolve-app-role";
 
 export function LoginForm({
   className,
@@ -24,8 +24,6 @@ export function LoginForm({
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const router = useRouter();
-
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     const supabase = createClient();
@@ -42,8 +40,18 @@ export function LoginForm({
         throw new Error("Login succeeded but no active session was returned.");
       }
 
-      router.replace("/admin");
-      router.refresh();
+      const role = await resolveAppRole(supabase, data.user.id, data.user.email);
+
+      if (!role) {
+        throw new Error(
+          "لم يُعثر على دورك في النظام. تأكد من وجود سجل في جدول profiles (أو users) مرتبط بنفس معرّف المستخدم في auth، وأن الحقل role/type يحتوي owner أو staff.",
+        );
+      }
+
+      const redirectPath = role === "owner" ? "/admin" : "/staff/class";
+      // تجنّب خطأ Next.js "Router action dispatched before initialization" بعد تسجيل الدخول،
+      // وضمان تحميل الجلسة والكوكيز في الطلب التالي.
+      window.location.assign(redirectPath);
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "An error occurred");
     } finally {
