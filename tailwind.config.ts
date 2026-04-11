@@ -10,6 +10,9 @@ export default {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ["var(--font-ibm-plex-sans-arabic)", "system-ui", "sans-serif"],
+      },
       colors: {
         /** ألوان لوحة الموظف والرسوم (كانت تُستخدم كـ bg-sky / bg-Yellow بدون تعريف) */
         sky: "#C3EBFA",

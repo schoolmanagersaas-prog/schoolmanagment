@@ -11,7 +11,7 @@ export async function StaffNavbar() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  let schoolDisplay = "مدرستك";
+  let schoolNameFromDb: string | null = null;
   if (user) {
     const schoolId = await resolveSchoolId(supabase, user.id, user.email);
     if (schoolId) {
@@ -20,10 +20,12 @@ export async function StaffNavbar() {
         .select("name")
         .eq("id", schoolId)
         .maybeSingle();
-      const name = (schoolRow as { name?: string } | null)?.name?.trim();
-      if (name) schoolDisplay = name;
+      const raw = (schoolRow as { name?: string } | null)?.name?.trim();
+      if (raw) schoolNameFromDb = raw;
     }
   }
+
+  const navTitle = schoolNameFromDb ?? "لوحة المدرسة";
 
   return (
     <header
@@ -32,25 +34,18 @@ export async function StaffNavbar() {
     >
       <Link
         href="/staff"
-        className="text-sm font-semibold text-gray-800 hover:text-gray-950 transition-colors"
+        className="min-w-0 truncate text-sm font-semibold text-gray-800 hover:text-gray-950 transition-colors max-w-[55vw] sm:max-w-md md:max-w-xl"
+        title={navTitle}
       >
-        لوحة المدرسة
+        {navTitle}
       </Link>
       <div className="flex items-center gap-3 text-sm">
         {!hasEnvVars ? (
           <EnvVarWarning />
         ) : user ? (
-          <div className="flex min-w-0 items-center gap-3">
-            <span
-              className="truncate font-medium text-gray-900 max-w-[45vw] sm:max-w-xs md:max-w-md"
-              title={schoolDisplay}
-            >
-              {schoolDisplay}
-            </span>
-            <LogoutButton className="shrink-0 border-0 bg-red-600 font-semibold text-white shadow-md hover:bg-red-700 focus-visible:ring-red-500">
-              تسجيل خروج
-            </LogoutButton>
-          </div>
+          <LogoutButton className="shrink-0 border-0 bg-red-600 font-semibold text-white shadow-md hover:bg-red-700 focus-visible:ring-red-500">
+            تسجيل خروج
+          </LogoutButton>
         ) : null}
       </div>
     </header>

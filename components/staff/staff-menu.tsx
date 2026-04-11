@@ -35,12 +35,12 @@ export function StaffMenu({ roleLabel }: StaffMenuProps) {
       <div className="mb-2 p-3 bg-Yellow rounded-lg flex-shrink-0">
         <div className="flex flex-col lg:flex-row lg:items-center gap-1 lg:gap-2">
           <span className="text-xs text-gray-600">الدور الحالي:</span>
-          <span className="text-sm font-medium text-gray-800">{roleLabel}</span>
+          <span className="text-xs font-medium text-gray-800">{roleLabel}</span>
         </div>
       </div>
 
       <div className="flex flex-col gap-2">
-        <span className="hidden lg:block text-gray-700 font-medium text-sm px-3 py-2 bg-sky rounded-lg">
+        <span className="hidden lg:block text-gray-700 font-medium text-xs px-3 py-2 bg-sky rounded-lg">
           القائمة الرئيسية
         </span>
         {staffMenuItems.map((item) => {
