@@ -1,8 +1,15 @@
 import { backfillAbsentForPastUnmarked, listStudents } from "@/actions/students";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { resolveSchoolId } from "@/lib/auth/resolve-school-id";
+import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/server";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { DailyAttendanceCheckbox } from "./daily-attendance-checkbox";
+
+const STUDENT_PAGE_SIZE = 10;
 
 type StudentListPageProps = {
   searchParams?: Promise<{
@@ -10,8 +17,34 @@ type StudentListPageProps = {
     classId?: string;
     date?: string;
     month?: string;
+    page?: string;
   }>;
 };
+
+function parsePageParam(value: string | undefined): number {
+  const n = Number.parseInt(String(value ?? "").trim() || "1", 10);
+  if (!Number.isFinite(n) || n < 1) return 1;
+  return n;
+}
+
+type StudentListQuery = {
+  q?: string;
+  classId?: string;
+  date?: string;
+  month?: string;
+  page?: number;
+};
+
+function buildStudentListHref(parts: StudentListQuery): string {
+  const sp = new URLSearchParams();
+  if (parts.q?.trim()) sp.set("q", parts.q.trim());
+  if (parts.classId?.trim()) sp.set("classId", parts.classId.trim());
+  if (parts.date?.trim()) sp.set("date", parts.date.trim());
+  if (parts.month?.trim()) sp.set("month", parts.month.trim());
+  if (parts.page != null && parts.page > 1) sp.set("page", String(parts.page));
+  const qs = sp.toString();
+  return qs ? `/staff/studentlist?${qs}` : "/staff/studentlist";
+}
 
 function parseDateParam(value: string | undefined): string {
   const raw = value?.trim();
@@ -99,6 +132,11 @@ function buildMonthlyStatsByStudent(
   return out;
 }
 
+const selectClassName = cn(
+  "flex h-10 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors",
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-400",
+);
+
 export default async function StaffStudentListPage({ searchParams }: StudentListPageProps) {
   const params = (await searchParams) ?? {};
   const supabase = await createClient();
@@ -111,8 +149,10 @@ export default async function StaffStudentListPage({ searchParams }: StudentList
   const schoolId = await resolveSchoolId(supabase, user.id, user.email);
   if (!schoolId) {
     return (
-      <div className="w-full max-w-6xl rounded-lg border border-red-500/30 bg-red-500/10 p-5 text-sm text-red-700">
-        لم يتم العثور على مدرسة مرتبطة بحسابك.
+      <div className="p-6 flex flex-col gap-6" dir="rtl">
+        <div className="rounded-2xl border border-amber-400/40 bg-amber-100/40 p-6 text-amber-900 text-center text-sm">
+          لم يتم العثور على مدرسة مرتبطة بحسابك.
+        </div>
       </div>
     );
   }
@@ -121,6 +161,8 @@ export default async function StaffStudentListPage({ searchParams }: StudentList
   const classId = params.classId?.trim() || undefined;
   const attendanceDate = parseDateParam(params.date);
   const monthRange = parseYearMonthParam(params.month);
+  const page = parsePageParam(params.page);
+  const offset = (page - 1) * STUDENT_PAGE_SIZE;
 
   const [{ data: schoolRow }, { data: classes }, studentsResult] = await Promise.all([
     supabase.from("schools").select("name").eq("id", schoolId).maybeSingle(),
@@ -128,13 +170,28 @@ export default async function StaffStudentListPage({ searchParams }: StudentList
     listStudents({
       query,
       classId,
-      limit: 1000,
+      limit: STUDENT_PAGE_SIZE,
+      offset,
       attendanceFrom: attendanceDate,
       attendanceTo: attendanceDate,
     }),
   ]);
 
   const schoolName = (schoolRow as { name?: string } | null)?.name ?? "مدرستك";
+
+  const listTotal = studentsResult.success ? studentsResult.total : 0;
+  const totalPages = Math.max(1, Math.ceil(listTotal / STUDENT_PAGE_SIZE));
+  if (studentsResult.success && page > totalPages) {
+    redirect(
+      buildStudentListHref({
+        q: query,
+        classId,
+        date: attendanceDate,
+        month: monthRange.value,
+        page: listTotal === 0 ? 1 : totalPages,
+      }),
+    );
+  }
 
   const studentIds =
     studentsResult.success && studentsResult.students.length > 0
@@ -195,127 +252,111 @@ export default async function StaffStudentListPage({ searchParams }: StudentList
   const monthlyStatsByStudent = buildMonthlyStatsByStudent(monthlyRows, calendarDaysInMonth);
 
   return (
-    <div className="w-full max-w-6xl space-y-6" dir="rtl">
-      <div className="space-y-2">
-        <h1 className="text-2xl font-bold">قائمة الطلاب</h1>
-        <p className="text-sm text-muted-foreground">
-          عرض الطلاب المسجلين في مدرستك، مع البحث بالاسم، وتصفية حسب الصف، وتسجيل الحضور اليومي حسب
-          التاريخ المختار، وعمود نسبة الحضور الشهرية المحسوبة من سجلات الشهر المحدد.
-        </p>
+    <div className="p-6 max-w-6xl mx-auto flex flex-col gap-6" dir="rtl">
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">قائمة الطلاب</h1>
+          <p className="text-sm text-muted-foreground">{schoolName}</p>
+        </div>
       </div>
 
-      <div className="rounded-lg border bg-muted/30 px-4 py-3 text-sm">
-        <span className="text-muted-foreground">المدرسة: </span>
-        <span className="font-semibold">{schoolName}</span>
-        <span className="mx-2 text-muted-foreground">|</span>
-        <span className="text-muted-foreground">
-          الحساب مرتبط بمدرسة واحدة؛ لتغيير المدرسة يجب استخدام حساب مرتبط بمدرسة أخرى.
-        </span>
-      </div>
-
-      <form method="get" className="space-y-4 rounded-lg border p-5">
-        <h2 className="text-lg font-semibold">البحث والتصفية</h2>
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
-          <div className="space-y-1">
-            <label htmlFor="q" className="text-xs font-medium text-muted-foreground">
-              بحث باسم الطالب (أو هاتف ولي الأمر)
-            </label>
-            <input
-              id="q"
-              name="q"
-              defaultValue={query ?? ""}
-              placeholder="اكتب للبحث…"
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
-            />
+      <section className="bg-white rounded-3xl shadow-lg border p-6 space-y-6">
+        <h2 className="text-lg font-semibold text-gray-800 border-b pb-2">بحث وتصفية</h2>
+        <form method="get" className="space-y-5">
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-4">
+            <div className="space-y-2">
+              <Label htmlFor="q">بحث</Label>
+              <Input
+                id="q"
+                name="q"
+                defaultValue={query ?? ""}
+                placeholder="اسم أو هاتف ولي الأمر"
+                className="rounded-xl focus-visible:ring-2 focus-visible:ring-yellow-400"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="classId">الصف</Label>
+              <select id="classId" name="classId" defaultValue={classId ?? ""} className={selectClassName}>
+                <option value="">كل الصفوف</option>
+                {(classes ?? []).map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="month">شهر نسبة الحضور</Label>
+              <Input
+                id="month"
+                name="month"
+                type="month"
+                defaultValue={monthRange.value}
+                className="rounded-xl focus-visible:ring-2 focus-visible:ring-yellow-400"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="date">تاريخ الحضور اليومي</Label>
+              <Input
+                id="date"
+                name="date"
+                type="date"
+                defaultValue={attendanceDate}
+                className="rounded-xl focus-visible:ring-2 focus-visible:ring-yellow-400"
+              />
+            </div>
           </div>
-          <div className="space-y-1">
-            <label htmlFor="classId" className="text-xs font-medium text-muted-foreground">
-              الصف (ضمن المدرسة)
-            </label>
-            <select
-              id="classId"
-              name="classId"
-              defaultValue={classId ?? ""}
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+          <div className="flex flex-wrap gap-2 pt-1">
+            <Button
+              type="submit"
+              className="rounded-md bg-Yellow px-4 text-foreground shadow-sm hover:bg-Yellow/90 hover:scale-[1.02] transition-transform"
             >
-              <option value="">كل الصفوف</option>
-              {(classes ?? []).map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
+              تطبيق
+            </Button>
+            <Button type="button" variant="outline" asChild className="rounded-md">
+              <Link href="/staff/studentlist">إعادة ضبط</Link>
+            </Button>
           </div>
-          <div className="space-y-1">
-            <label htmlFor="month" className="text-xs font-medium text-muted-foreground">
-              شهر نسبة الحضور
-            </label>
-            <input
-              id="month"
-              name="month"
-              type="month"
-              defaultValue={monthRange.value}
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
-            />
-          </div>
-          <div className="space-y-1">
-            <label htmlFor="date" className="text-xs font-medium text-muted-foreground">
-              تاريخ الحضور (اليومي)
-            </label>
-            <input
-              id="date"
-              name="date"
-              type="date"
-              defaultValue={attendanceDate}
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
-            />
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="submit"
-            className="inline-flex items-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
-          >
-            تطبيق
-          </button>
-          <a
-            href="/staff/studentlist"
-            className="inline-flex items-center rounded-md border px-4 py-2 text-sm font-medium hover:bg-muted"
-          >
-            إعادة ضبط
-          </a>
-        </div>
-      </form>
+        </form>
+      </section>
 
-      <section className="overflow-hidden rounded-lg border">
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-muted/20 px-4 py-3 text-sm">
-          <span className="font-semibold">
-            الطلاب ({studentsResult.success ? studentsResult.total : 0}) — تسجيل اليوم: {attendanceDate} — نسبة
-            الحضور: شهر {monthRange.value}
-          </span>
-          {!studentsResult.success ? (
-            <span className="text-red-700">{studentsResult.message}</span>
-          ) : null}
+      <section className="bg-white rounded-3xl shadow-lg border overflow-hidden">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 bg-gray-50/80 px-6 py-4 text-sm">
+          <div className="font-semibold text-gray-800">
+            الطلاب: {studentsResult.success ? studentsResult.total.toLocaleString("en-US") : "—"}
+            {studentsResult.success && studentsResult.total > 0 ? (
+              <>
+                <span className="mx-2 font-normal text-muted-foreground">·</span>
+                <span className="font-normal text-muted-foreground">
+                  عرض {(page - 1) * STUDENT_PAGE_SIZE + 1}–
+                  {Math.min(page * STUDENT_PAGE_SIZE, studentsResult.total).toLocaleString("en-US")}
+                </span>
+              </>
+            ) : null}
+            <span className="mx-2 font-normal text-muted-foreground">·</span>
+            <span className="font-normal text-muted-foreground">اليوم {attendanceDate}</span>
+            <span className="mx-2 font-normal text-muted-foreground">·</span>
+            <span className="font-normal text-muted-foreground">الشهر {monthRange.value}</span>
+          </div>
+          {!studentsResult.success ? <span className="text-sm text-red-700">{studentsResult.message}</span> : null}
         </div>
 
         {!studentsResult.success ? null : studentsResult.students.length === 0 ? (
-          <p className="p-6 text-sm text-muted-foreground">لا يوجد طلاب مطابقون للبحث الحالي.</p>
+          <p className="p-8 text-center text-sm text-muted-foreground">لا يوجد طلاب مطابقون.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[860px] border-collapse text-sm">
               <thead>
-                <tr className="border-b bg-muted/40 text-right">
-                  <th className="px-3 py-3 font-medium">الاسم</th>
-                  <th className="px-3 py-3 font-medium">الصف</th>
-                  <th className="px-3 py-3 font-medium">النوع</th>
-                  <th className="px-3 py-3 font-medium">الحالة</th>
-                  <th className="px-3 py-3 font-medium">
+                <tr className="border-b bg-muted/50 text-right text-gray-800">
+                  <th className="px-4 py-3 font-semibold">الاسم</th>
+                  <th className="px-4 py-3 font-semibold">الصف</th>
+                  <th className="px-4 py-3 font-semibold">النوع</th>
+                  <th className="px-4 py-3 font-semibold">الحالة</th>
+                  <th className="px-4 py-3 font-semibold">
                     نسبة الحضور
-                    <span className="mt-0.5 block text-xs font-normal text-muted-foreground">
-                      (شهر {monthRange.value})
-                    </span>
+                    <span className="mt-0.5 block text-xs font-normal text-muted-foreground">{monthRange.value}</span>
                   </th>
-                  <th className="px-3 py-3 font-medium text-center">حاضر ({attendanceDate})</th>
+                  <th className="px-4 py-3 text-center font-semibold">حاضر</th>
                 </tr>
               </thead>
               <tbody>
@@ -323,18 +364,18 @@ export default async function StaffStudentListPage({ searchParams }: StudentList
                   const isPresent = presentByStudent.get(student.id) === true;
                   const monthly = monthlyStatsByStudent.get(student.id);
                   return (
-                    <tr key={student.id} className="border-b last:border-0 hover:bg-muted/30">
-                      <td className="px-3 py-3 font-medium">{student.fullName}</td>
-                      <td className="px-3 py-3 text-muted-foreground">{student.className ?? "—"}</td>
-                      <td className="px-3 py-3">{student.gender === "male" ? "ذكر" : "أنثى"}</td>
-                      <td className="px-3 py-3">
+                    <tr key={student.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50/80">
+                      <td className="px-4 py-3 font-medium text-gray-900">{student.fullName}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{student.className ?? "—"}</td>
+                      <td className="px-4 py-3">{student.gender === "male" ? "ذكر" : "أنثى"}</td>
+                      <td className="px-4 py-3">
                         {student.status === "active" ? (
                           <span className="text-green-700">نشط</span>
                         ) : (
                           <span className="text-muted-foreground">منسحب</span>
                         )}
                       </td>
-                      <td className="px-3 py-3 text-center">
+                      <td className="px-4 py-3 text-center">
                         {(() => {
                           const presentDays = monthly?.presentDays ?? 0;
                           const hasAnyRecord = (monthly?.recordedDays ?? 0) > 0;
@@ -363,7 +404,7 @@ export default async function StaffStudentListPage({ searchParams }: StudentList
                           );
                         })()}
                       </td>
-                      <td className="px-3 py-3 text-center">
+                      <td className="px-4 py-3 text-center">
                         <DailyAttendanceCheckbox
                           studentId={student.id}
                           attendanceDate={attendanceDate}
@@ -377,16 +418,53 @@ export default async function StaffStudentListPage({ searchParams }: StudentList
             </table>
           </div>
         )}
-      </section>
 
-      <p className="text-xs text-muted-foreground">
-        إن لم يُسجَّل حضور لطالب في التاريخ المحدد يظهر المربع غير محدد؛ عند التفعيل يُحفظ «حاضر»، وعند
-        إلغاء التفعيل يُحفظ «غائب»، وفق جدول{" "}
-        <code className="rounded bg-muted px-1">student_attendance</code>. نسبة الحضور الشهرية = (عدد أيام
-        «حاضر» في الشهر ÷ عدد أيام ذلك الشهر التقويمي) × 100. إن لم يوجد أي سجل في الشهر يُعرض شرطة (—).
-        للأيام الماضية (قبل اليوم بتوقيت UTC)، يُسجَّل «غائب» تلقائيًا لأي طالب لا يملك سجلًا لذلك التاريخ عند
-        فتح هذه الصفحة، دون تعديل من سُجِّل له حضور أو غياب مسبقًا.
-      </p>
+        <div className="flex flex-wrap items-center justify-center gap-3 border-t border-gray-100 bg-gray-50/50 px-6 py-4 text-sm">
+          {!studentsResult.success || page <= 1 || listTotal === 0 ? (
+            <Button type="button" variant="outline" className="rounded-md" disabled>
+              السابق
+            </Button>
+          ) : (
+            <Button variant="outline" className="rounded-md" asChild>
+              <Link
+                href={buildStudentListHref({
+                  q: query,
+                  classId,
+                  date: attendanceDate,
+                  month: monthRange.value,
+                  page: page - 1,
+                })}
+              >
+                السابق
+              </Link>
+            </Button>
+          )}
+          <span className="tabular-nums text-muted-foreground">
+            {studentsResult.success
+              ? `صفحة ${page.toLocaleString("en-US")} من ${totalPages.toLocaleString("en-US")}`
+              : "—"}
+          </span>
+          {!studentsResult.success || page >= totalPages || listTotal === 0 ? (
+            <Button type="button" variant="outline" className="rounded-md" disabled>
+              التالي
+            </Button>
+          ) : (
+            <Button variant="outline" className="rounded-md" asChild>
+              <Link
+                href={buildStudentListHref({
+                  q: query,
+                  classId,
+                  date: attendanceDate,
+                  month: monthRange.value,
+                  page: page + 1,
+                })}
+              >
+                التالي
+              </Link>
+            </Button>
+          )}
+        </div>
+      </section>
     </div>
   );
 }

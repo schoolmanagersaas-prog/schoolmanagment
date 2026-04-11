@@ -84,6 +84,8 @@ export type StudentFilters = {
   attendanceFrom?: string;
   attendanceTo?: string;
   limit?: number;
+  /** إزاحة السجلات لدعم التصفح (مع limit). */
+  offset?: number;
 };
 
 export type UpsertAttendanceInput = {
@@ -461,27 +463,47 @@ export async function listStudents(filters: StudentFilters = {}): Promise<ListSt
   }
 
   const limit = Math.min(Math.max(filters.limit ?? 200, 1), 1000);
+  const offset = Math.max(0, Math.floor(filters.offset ?? 0));
   const supabase = await createClient();
 
-  let query = supabase
-    .from("students")
-    .select(
-      "id,full_name,class_id,gender,base_tuition,guardian_phone,address,status,created_at,classes!students_class_school_fk(name)",
-    )
-    .eq("school_id", auth.schoolId)
-    .limit(limit)
-    .order("created_at", { ascending: false });
+  const selectColumns =
+    "id,full_name,class_id,gender,base_tuition,guardian_phone,address,status,created_at,classes!students_class_school_fk(name)";
 
-  if (filters.classId) query = query.eq("class_id", filters.classId);
-  if (filters.gender) query = query.eq("gender", filters.gender);
-  if (filters.status) query = query.eq("status", filters.status);
+  let countQuery = supabase
+    .from("students")
+    .select("*", { count: "exact", head: true })
+    .eq("school_id", auth.schoolId);
+
+  let dataQuery = supabase
+    .from("students")
+    .select(selectColumns)
+    .eq("school_id", auth.schoolId)
+    .order("created_at", { ascending: false })
+    .range(offset, offset + limit - 1);
+
+  if (filters.classId) {
+    countQuery = countQuery.eq("class_id", filters.classId);
+    dataQuery = dataQuery.eq("class_id", filters.classId);
+  }
+  if (filters.gender) {
+    countQuery = countQuery.eq("gender", filters.gender);
+    dataQuery = dataQuery.eq("gender", filters.gender);
+  }
+  if (filters.status) {
+    countQuery = countQuery.eq("status", filters.status);
+    dataQuery = dataQuery.eq("status", filters.status);
+  }
 
   if (filters.query?.trim()) {
     const q = filters.query.trim();
-    query = query.or(`full_name.ilike.%${q}%,guardian_phone.ilike.%${q}%`);
+    const orFilter = `full_name.ilike.%${q}%,guardian_phone.ilike.%${q}%`;
+    countQuery = countQuery.or(orFilter);
+    dataQuery = dataQuery.or(orFilter);
   }
 
-  const { data: studentRows, error: studentsError } = await query;
+  const [{ count: totalCount, error: countError }, { data: studentRows, error: studentsError }] =
+    await Promise.all([countQuery, dataQuery]);
+
   if (studentsError) {
     return {
       success: false,
@@ -492,12 +514,17 @@ export async function listStudents(filters: StudentFilters = {}): Promise<ListSt
   }
 
   const students = (studentRows ?? []) as StudentRow[];
+  const matchedTotal = countError ? students.length : (totalCount ?? 0);
+
   if (students.length === 0) {
     return {
       success: true,
       students: [],
-      total: 0,
-      message: "لا يوجد طلاب مطابقون للبحث.",
+      total: matchedTotal,
+      message:
+        matchedTotal === 0
+          ? "لا يوجد طلاب مطابقون للبحث."
+          : "تم تحميل الطلاب بنجاح.",
     };
   }
 
@@ -658,7 +685,7 @@ export async function listStudents(filters: StudentFilters = {}): Promise<ListSt
   return {
     success: true,
     students: mapped,
-    total: mapped.length,
+    total: matchedTotal,
     message: financeUnavailable
       ? "تم تحميل الطلاب بنجاح، لكن البيانات المالية غير متاحة بسبب الصلاحيات."
       : "تم تحميل الطلاب بنجاح.",
