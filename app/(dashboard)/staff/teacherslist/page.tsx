@@ -294,4 +294,22 @@ export default async function StaffTeachersListPage({ searchParams }: TeachersLi
                             </div>
                           );
                         })()}
-                      </
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <DailyTeacherAttendanceCheckbox
+                          teacherId={teacher.id}
+                          attendanceDate={attendanceDate}
+                          initialPresent={isPresent}
+                        />
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
