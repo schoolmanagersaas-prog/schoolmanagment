@@ -250,12 +250,27 @@ export default async function StaffStudentListPage({ searchParams }: StudentList
 
   return (
     <div className="p-6 max-w-6xl mx-auto flex flex-col gap-6" dir="rtl">
-      <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">قائمة الطلاب</h1>
-          <p className="text-sm text-muted-foreground">{schoolName}</p>
+      <section className="rounded-3xl border bg-gradient-to-l from-sky/35 via-background to-Yellow/25 p-5 shadow-sm sm:p-6">
+        <div className="flex flex-col gap-3">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-gray-900">قائمة الطلاب</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {schoolName} · متابعة الحضور اليومي ونسبة الحضور الشهرية للطلاب.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2 text-xs">
+            <span className="rounded-full border border-border/60 bg-background/80 px-3 py-1.5 text-foreground">
+              عدد الطلاب: {studentsResult.success ? studentsResult.total.toLocaleString("en-US") : "—"}
+            </span>
+            <span className="rounded-full border border-border/60 bg-background/80 px-3 py-1.5 text-foreground">
+              تاريخ الحضور: {attendanceDate}
+            </span>
+            <span className="rounded-full border border-border/60 bg-background/80 px-3 py-1.5 text-foreground">
+              شهر النسبة: {monthRange.value}
+            </span>
+          </div>
         </div>
-      </div>
+      </section>
 
       <StudentListFilters
         classes={(classes ?? []) as { id: string; name: string }[]}
@@ -267,20 +282,13 @@ export default async function StaffStudentListPage({ searchParams }: StudentList
       <section className="bg-white rounded-3xl shadow-lg border overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 bg-gray-50/80 px-6 py-4 text-sm">
           <div className="font-semibold text-gray-800">
-            الطلاب: {studentsResult.success ? studentsResult.total.toLocaleString("en-US") : "—"}
+            جدول الطلاب والحضور
             {studentsResult.success && studentsResult.total > 0 ? (
-              <>
-                <span className="mx-2 font-normal text-muted-foreground">·</span>
-                <span className="font-normal text-muted-foreground">
-                  عرض {(page - 1) * STUDENT_PAGE_SIZE + 1}–
-                  {Math.min(page * STUDENT_PAGE_SIZE, studentsResult.total).toLocaleString("en-US")}
-                </span>
-              </>
+              <span className="mr-2 font-normal text-muted-foreground">
+                · عرض {(page - 1) * STUDENT_PAGE_SIZE + 1}–
+                {Math.min(page * STUDENT_PAGE_SIZE, studentsResult.total).toLocaleString("en-US")}
+              </span>
             ) : null}
-            <span className="mx-2 font-normal text-muted-foreground">·</span>
-            <span className="font-normal text-muted-foreground">اليوم {attendanceDate}</span>
-            <span className="mx-2 font-normal text-muted-foreground">·</span>
-            <span className="font-normal text-muted-foreground">الشهر {monthRange.value}</span>
           </div>
           {!studentsResult.success ? <span className="text-sm text-red-700">{studentsResult.message}</span> : null}
         </div>
