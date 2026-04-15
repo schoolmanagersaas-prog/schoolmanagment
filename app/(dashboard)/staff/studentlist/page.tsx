@@ -1,13 +1,11 @@
 import { backfillAbsentForPastUnmarked, listStudents } from "@/actions/students";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { resolveSchoolId } from "@/lib/auth/resolve-school-id";
-import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { DailyAttendanceCheckbox } from "./daily-attendance-checkbox";
+import { StudentListFilters } from "./student-list-filters";
 
 const STUDENT_PAGE_SIZE = 10;
 
@@ -16,7 +14,6 @@ type StudentListPageProps = {
     q?: string;
     classId?: string;
     date?: string;
-    month?: string;
     page?: string;
   }>;
 };
@@ -31,7 +28,6 @@ type StudentListQuery = {
   q?: string;
   classId?: string;
   date?: string;
-  month?: string;
   page?: number;
 };
 
@@ -40,7 +36,6 @@ function buildStudentListHref(parts: StudentListQuery): string {
   if (parts.q?.trim()) sp.set("q", parts.q.trim());
   if (parts.classId?.trim()) sp.set("classId", parts.classId.trim());
   if (parts.date?.trim()) sp.set("date", parts.date.trim());
-  if (parts.month?.trim()) sp.set("month", parts.month.trim());
   if (parts.page != null && parts.page > 1) sp.set("page", String(parts.page));
   const qs = sp.toString();
   return qs ? `/staff/studentlist?${qs}` : "/staff/studentlist";
@@ -91,18 +86,25 @@ function parseYearMonthParam(value: string | undefined): { from: string; to: str
 type MonthlyAttendanceStats = {
   presentDays: number;
   recordedDays: number;
-  daysInCalendarMonth: number;
-  /** (أيام الحضور ÷ أيام الشهر التقويمي) × 100 */
+  daysInSchoolMonth: number;
+  /** (أيام الحضور ÷ أيام الدوام في الشهر) × 100 */
   ratePercent: number;
 };
 
-function daysInCalendarMonth(ymValue: string): number {
+function daysInSchoolMonthExcludingFriSat(ymValue: string): number {
   const parsed = monthToDateRange(ymValue);
-  if (!parsed) return 30;
+  if (!parsed) return 22;
   const y = Number(parsed.from.slice(0, 4));
   const mo = Number(parsed.from.slice(5, 7));
-  if (!Number.isFinite(y) || mo < 1 || mo > 12) return 30;
-  return new Date(y, mo, 0).getDate();
+  if (!Number.isFinite(y) || mo < 1 || mo > 12) return 22;
+  const lastDay = new Date(y, mo, 0).getDate();
+  let schoolDays = 0;
+  for (let day = 1; day <= lastDay; day += 1) {
+    const weekday = new Date(Date.UTC(y, mo - 1, day)).getUTCDay();
+    if (weekday === 5 || weekday === 6) continue; // الجمعة والسبت
+    schoolDays += 1;
+  }
+  return schoolDays;
 }
 
 function buildMonthlyStatsByStudent(
@@ -125,17 +127,12 @@ function buildMonthlyStatsByStudent(
     out.set(sid, {
       presentDays: present,
       recordedDays: recorded,
-      daysInCalendarMonth: daysInMonth,
+      daysInSchoolMonth: daysInMonth,
       ratePercent,
     });
   }
   return out;
 }
-
-const selectClassName = cn(
-  "flex h-10 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors",
-  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-400",
-);
 
 export default async function StaffStudentListPage({ searchParams }: StudentListPageProps) {
   const params = (await searchParams) ?? {};
@@ -160,7 +157,7 @@ export default async function StaffStudentListPage({ searchParams }: StudentList
   const query = params.q?.trim() || undefined;
   const classId = params.classId?.trim() || undefined;
   const attendanceDate = parseDateParam(params.date);
-  const monthRange = parseYearMonthParam(params.month);
+  const monthRange = parseYearMonthParam(undefined);
   const page = parsePageParam(params.page);
   const offset = (page - 1) * STUDENT_PAGE_SIZE;
 
@@ -187,7 +184,6 @@ export default async function StaffStudentListPage({ searchParams }: StudentList
         q: query,
         classId,
         date: attendanceDate,
-        month: monthRange.value,
         page: listTotal === 0 ? 1 : totalPages,
       }),
     );
@@ -226,6 +222,7 @@ export default async function StaffStudentListPage({ searchParams }: StudentList
     await backfillAbsentForPastUnmarked({
       attendanceDate,
       studentIds,
+      revalidateViews: false,
     });
   }
 
@@ -248,8 +245,8 @@ export default async function StaffStudentListPage({ searchParams }: StudentList
     presentByStudent.set(row.student_id, row.status === "present");
   }
 
-  const calendarDaysInMonth = daysInCalendarMonth(monthRange.value);
-  const monthlyStatsByStudent = buildMonthlyStatsByStudent(monthlyRows, calendarDaysInMonth);
+  const schoolDaysInMonth = daysInSchoolMonthExcludingFriSat(monthRange.value);
+  const monthlyStatsByStudent = buildMonthlyStatsByStudent(monthlyRows, schoolDaysInMonth);
 
   return (
     <div className="p-6 max-w-6xl mx-auto flex flex-col gap-6" dir="rtl">
@@ -260,65 +257,12 @@ export default async function StaffStudentListPage({ searchParams }: StudentList
         </div>
       </div>
 
-      <section className="bg-white rounded-3xl shadow-lg border p-6 space-y-6">
-        <h2 className="text-lg font-semibold text-gray-800 border-b pb-2">بحث وتصفية</h2>
-        <form method="get" className="space-y-5">
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-4">
-            <div className="space-y-2">
-              <Label htmlFor="q">بحث</Label>
-              <Input
-                id="q"
-                name="q"
-                defaultValue={query ?? ""}
-                placeholder="اسم أو هاتف ولي الأمر"
-                className="rounded-xl focus-visible:ring-2 focus-visible:ring-yellow-400"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="classId">الصف</Label>
-              <select id="classId" name="classId" defaultValue={classId ?? ""} className={selectClassName}>
-                <option value="">كل الصفوف</option>
-                {(classes ?? []).map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="month">شهر نسبة الحضور</Label>
-              <Input
-                id="month"
-                name="month"
-                type="month"
-                defaultValue={monthRange.value}
-                className="rounded-xl focus-visible:ring-2 focus-visible:ring-yellow-400"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="date">تاريخ الحضور اليومي</Label>
-              <Input
-                id="date"
-                name="date"
-                type="date"
-                defaultValue={attendanceDate}
-                className="rounded-xl focus-visible:ring-2 focus-visible:ring-yellow-400"
-              />
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-2 pt-1">
-            <Button
-              type="submit"
-              className="rounded-md bg-Yellow px-4 text-foreground shadow-sm hover:bg-Yellow/90 hover:scale-[1.02] transition-transform"
-            >
-              تطبيق
-            </Button>
-            <Button type="button" variant="outline" asChild className="rounded-md">
-              <Link href="/staff/studentlist">إعادة ضبط</Link>
-            </Button>
-          </div>
-        </form>
-      </section>
+      <StudentListFilters
+        classes={(classes ?? []) as { id: string; name: string }[]}
+        initialQuery={query ?? ""}
+        initialClassId={classId ?? ""}
+        initialDate={attendanceDate}
+      />
 
       <section className="bg-white rounded-3xl shadow-lg border overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 bg-gray-50/80 px-6 py-4 text-sm">
@@ -390,7 +334,7 @@ export default async function StaffStudentListPage({ searchParams }: StudentList
                             );
                           }
                           const rate = monthly?.ratePercent ?? 0;
-                          const dim = monthly?.daysInCalendarMonth ?? calendarDaysInMonth;
+                          const dim = monthly?.daysInSchoolMonth ?? schoolDaysInMonth;
                           return (
                             <div className="space-y-0.5">
                               <div className="font-semibold tabular-nums text-foreground">
@@ -398,7 +342,7 @@ export default async function StaffStudentListPage({ searchParams }: StudentList
                               </div>
                               <div className="text-xs text-muted-foreground">
                                 {presentDays.toLocaleString("en-US")} يوم حضور من أصل{" "}
-                                {dim.toLocaleString("en-US")} يومًا في الشهر
+                                {dim.toLocaleString("en-US")} يوم دوام في الشهر
                               </div>
                             </div>
                           );
@@ -431,7 +375,6 @@ export default async function StaffStudentListPage({ searchParams }: StudentList
                   q: query,
                   classId,
                   date: attendanceDate,
-                  month: monthRange.value,
                   page: page - 1,
                 })}
               >
@@ -455,7 +398,6 @@ export default async function StaffStudentListPage({ searchParams }: StudentList
                   q: query,
                   classId,
                   date: attendanceDate,
-                  month: monthRange.value,
                   page: page + 1,
                 })}
               >

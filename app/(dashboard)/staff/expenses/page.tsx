@@ -197,31 +197,7 @@ export default async function StaffExpensesPage({ searchParams }: ExpensesPagePr
 
   return (
     <div className="p-4 flex flex-col gap-8 min-w-0" dir="rtl">
-      <div className="rounded-2xl bg-sky p-5 shadow-sm transition-shadow hover:shadow-md sm:p-6">
-        <div className="space-y-2">
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">المصاريف</h1>
-          <p className="text-sm text-gray-600 leading-relaxed">
-            سجل المصاريف أدناه يجمع تلقائياً دفعات رواتب المعلمين (عند الصرف من صفحة أقساط الرواتب) مع المصروفات اليدوية
-            المسجّلة في النموذج. إجمالي المصروفات في البطاقات يطابق الملخص المالي دون تكرار في قاعدة البيانات.
-          </p>
-          <p className="text-xs text-gray-600">
-            <Link
-              href="/staff/teacher-installments"
-              className="font-medium text-foreground underline-offset-4 hover:underline"
-            >
-              أقساط المعلمين
-            </Link>
-            <span className="mx-1.5 text-muted-foreground">·</span>
-            <Link href="/staff/revenues" className="font-medium text-foreground underline-offset-4 hover:underline">
-              الإيرادات
-            </Link>
-            <span className="mx-1.5 text-muted-foreground">·</span>
-            <Link href="/staff" className="font-medium text-foreground underline-offset-4 hover:underline">
-              لوحة التحكم
-            </Link>
-          </p>
-        </div>
-      </div>
+
 
       {pageMessage ? (
         <div
@@ -247,25 +223,16 @@ export default async function StaffExpensesPage({ searchParams }: ExpensesPagePr
         </div>
       ) : (
         <div className="flex flex-col gap-3">
-          <div className="flex gap-4 justify-between flex-wrap">
-            <UserCard type="إجمالي مصروفات المدرسة" count={summaryResult.totalExpenses} badgeLabel="ملخص مالي" />
-            <UserCard type="الرصيد المتاح (بعد المصروفات)" count={summaryResult.netProfit} badgeLabel="صافٍ" />
-            <UserCard
-              type="منها: مسجّل في جدول expenses"
-              count={expensesTableSumOk ? expensesTableTotal : 0}
-              badgeLabel={expensesTableSumOk ? "جدول expenses" : "تعذر الجلب"}
-            />
+          <div className="flex gap-4 justify-start flex-wrap">
+            <UserCard type="إجمالي مصروفات المدرسة" count={summaryResult.totalExpenses} badgeLabel="ملخص مالي" valuePrefix="$" />
+            <UserCard type="الرصيد المتاح (بعد المصروفات)" count={summaryResult.netProfit} badgeLabel="صافٍ" valuePrefix="$" />
+
           </div>
           {!expensesTableSumOk ? (
             <p className="text-sm text-destructive">
               {expSumRes.error?.message ?? "تعذر جمع مبالغ جدول المصروفات اليدوية."}
             </p>
-          ) : (
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              الإيرادات تشمل دفعات الطلاب والإيرادات المسجّلة؛ المصروفات تشمل المصروفات اليدوية ودفعات رواتب المعلمين.
-              الرصيد = الإيرادات ناقص المصروفات. لا يُسمح بتسجيل مصروف يتجاوز الرصيد إلا بعد تأكيد أنه من مال شخصي.
-            </p>
-          )}
+          ) : null}
         </div>
       )}
 
@@ -389,7 +356,7 @@ export default async function StaffExpensesPage({ searchParams }: ExpensesPagePr
                         <span>{row.title}</span>
                       </div>
                     </td>
-                    <td className="px-4 py-3 tabular-nums font-medium">{row.amount.toLocaleString("en-US")}</td>
+                    <td className="px-4 py-3 tabular-nums font-medium">${row.amount.toLocaleString("en-US")}</td>
                     <td className="px-4 py-3">
                       {row.canEdit ? (
                         <div className="flex flex-wrap gap-2 justify-end">

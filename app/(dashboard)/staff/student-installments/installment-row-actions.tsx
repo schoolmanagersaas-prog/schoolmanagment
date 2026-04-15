@@ -118,7 +118,7 @@ export function InstallmentRowActions({
             />
           </div>
           <p className="text-xs text-muted-foreground">
-            إن وُجدت دفعات، لا يمكن جعل المبلغ أقل من إجمالي المدفوع ({totalPaid.toLocaleString("en-US")}).
+            إن وُجدت دفعات، لا يمكن جعل المبلغ أقل من إجمالي المدفوع (${totalPaid.toLocaleString("en-US")}).
           </p>
           <div className="flex justify-end gap-2 pt-1">
             <Button type="button" variant="outline" size="sm" onClick={() => editRef.current?.close()}>

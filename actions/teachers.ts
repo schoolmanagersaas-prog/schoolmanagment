@@ -81,6 +81,11 @@ export type UpsertTeacherAttendanceInput = {
 export type BackfillTeacherAbsentUnmarkedInput = {
   attendanceDate: string;
   teacherIds: string[];
+  /**
+   * عند الاستدعاء أثناء render في صفحة Server Component يجب تعطيل revalidatePath
+   * لتجنب خطأ Next.js runtime.
+   */
+  revalidateViews?: boolean;
 };
 
 export type BackfillTeacherAbsentUnmarkedResult =
@@ -751,7 +756,7 @@ export async function backfillAbsentForPastTeachersUnmarked(
     filled += chunk.length;
   }
 
-  if (filled > 0) {
+  if (filled > 0 && input.revalidateViews !== false) {
     revalidateTeachersViews();
   }
 

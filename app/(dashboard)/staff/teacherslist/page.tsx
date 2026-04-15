@@ -1,12 +1,9 @@
 import { backfillAbsentForPastTeachersUnmarked, listTeachers } from "@/actions/teachers";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { resolveSchoolId } from "@/lib/auth/resolve-school-id";
 import { createClient } from "@/lib/supabase/server";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { DailyTeacherAttendanceCheckbox } from "./daily-attendance-checkbox";
+import { TeacherListFilters } from "./teacher-list-filters";
 
 type TeachersListPageProps = {
   searchParams?: Promise<{
@@ -59,17 +56,24 @@ function parseYearMonthParam(value: string | undefined): { from: string; to: str
 type MonthlyAttendanceStats = {
   presentDays: number;
   recordedDays: number;
-  daysInCalendarMonth: number;
+  daysInSchoolMonth: number;
   ratePercent: number;
 };
 
-function daysInCalendarMonth(ymValue: string): number {
+function daysInSchoolMonthExcludingFriSat(ymValue: string): number {
   const parsed = monthToDateRange(ymValue);
-  if (!parsed) return 30;
+  if (!parsed) return 22;
   const y = Number(parsed.from.slice(0, 4));
   const mo = Number(parsed.from.slice(5, 7));
-  if (!Number.isFinite(y) || mo < 1 || mo > 12) return 30;
-  return new Date(y, mo, 0).getDate();
+  if (!Number.isFinite(y) || mo < 1 || mo > 12) return 22;
+  const lastDay = new Date(y, mo, 0).getDate();
+  let schoolDays = 0;
+  for (let day = 1; day <= lastDay; day += 1) {
+    const weekday = new Date(Date.UTC(y, mo - 1, day)).getUTCDay();
+    if (weekday === 5 || weekday === 6) continue; // الجمعة والسبت
+    schoolDays += 1;
+  }
+  return schoolDays;
 }
 
 function buildMonthlyStatsByTeacher(
@@ -92,7 +96,7 @@ function buildMonthlyStatsByTeacher(
     out.set(tid, {
       presentDays: present,
       recordedDays: recorded,
-      daysInCalendarMonth: daysInMonth,
+      daysInSchoolMonth: daysInMonth,
       ratePercent,
     });
   }
@@ -168,6 +172,7 @@ export default async function StaffTeachersListPage({ searchParams }: TeachersLi
     await backfillAbsentForPastTeachersUnmarked({
       attendanceDate,
       teacherIds,
+      revalidateViews: false,
     });
   }
 
@@ -190,78 +195,44 @@ export default async function StaffTeachersListPage({ searchParams }: TeachersLi
     presentByTeacher.set(row.teacher_id, row.status === "present");
   }
 
-  const calendarDaysInMonth = daysInCalendarMonth(monthRange.value);
-  const monthlyStatsByTeacher = buildMonthlyStatsByTeacher(monthlyRows, calendarDaysInMonth);
+  const schoolDaysInMonth = daysInSchoolMonthExcludingFriSat(monthRange.value);
+  const monthlyStatsByTeacher = buildMonthlyStatsByTeacher(monthlyRows, schoolDaysInMonth);
 
   const totalTeachers = teachersResult.success ? teachersResult.total : 0;
 
   return (
     <div className="p-6 max-w-6xl mx-auto flex flex-col gap-6" dir="rtl">
-      <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">قائمة المعلمين</h1>
-          <p className="text-sm text-muted-foreground">{schoolName}</p>
+      <section className="rounded-3xl border bg-gradient-to-l from-sky/35 via-background to-Yellow/25 p-5 shadow-sm sm:p-6">
+        <div className="flex flex-col gap-3">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-gray-900">قائمة المعلمين</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {schoolName} · متابعة الحضور اليومي ونسبة الحضور الشهرية للمعلمين.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2 text-xs">
+            <span className="rounded-full border border-border/60 bg-background/80 px-3 py-1.5 text-foreground">
+              عدد المعلمين: {teachersResult.success ? totalTeachers.toLocaleString("en-US") : "—"}
+            </span>
+            <span className="rounded-full border border-border/60 bg-background/80 px-3 py-1.5 text-foreground">
+              تاريخ الحضور: {attendanceDate}
+            </span>
+            <span className="rounded-full border border-border/60 bg-background/80 px-3 py-1.5 text-foreground">
+              شهر النسبة: {monthRange.value}
+            </span>
+          </div>
         </div>
-      </div>
-
-      <section className="bg-white rounded-3xl shadow-lg border p-6 space-y-6">
-        <h2 className="text-lg font-semibold text-gray-800 border-b pb-2">بحث وتصفية</h2>
-        <form method="get" className="space-y-5">
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
-            <div className="space-y-2">
-              <Label htmlFor="q">بحث</Label>
-              <Input
-                id="q"
-                name="q"
-                defaultValue={query ?? ""}
-                placeholder="اسم، هاتف، أو مادة"
-                className="rounded-xl focus-visible:ring-2 focus-visible:ring-yellow-400"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="month">شهر نسبة الحضور</Label>
-              <Input
-                id="month"
-                name="month"
-                type="month"
-                defaultValue={monthRange.value}
-                className="rounded-xl focus-visible:ring-2 focus-visible:ring-yellow-400"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="date">تاريخ الحضور اليومي</Label>
-              <Input
-                id="date"
-                name="date"
-                type="date"
-                defaultValue={attendanceDate}
-                className="rounded-xl focus-visible:ring-2 focus-visible:ring-yellow-400"
-              />
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-2 pt-1">
-            <Button
-              type="submit"
-              className="rounded-md bg-Yellow px-4 text-foreground shadow-sm hover:bg-Yellow/90 hover:scale-[1.02] transition-transform"
-            >
-              تطبيق
-            </Button>
-            <Button type="button" variant="outline" asChild className="rounded-md">
-              <Link href="/staff/teacherslist">إعادة ضبط</Link>
-            </Button>
-          </div>
-        </form>
       </section>
+
+      <TeacherListFilters
+        initialQuery={query ?? ""}
+        initialDate={attendanceDate}
+        initialMonth={monthRange.value}
+      />
 
       <section className="bg-white rounded-3xl shadow-lg border overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 bg-gray-50/80 px-6 py-4 text-sm">
-          <div className="font-semibold text-gray-800">
-            المعلمون: {teachersResult.success ? totalTeachers.toLocaleString("en-US") : "—"}
-            <span className="mx-2 font-normal text-muted-foreground">·</span>
-            <span className="font-normal text-muted-foreground">اليوم {attendanceDate}</span>
-            <span className="mx-2 font-normal text-muted-foreground">·</span>
-            <span className="font-normal text-muted-foreground">الشهر {monthRange.value}</span>
-          </div>
+          <div className="font-semibold text-gray-800">جدول المعلمين والحضور</div>
           {!teachersResult.success ? <span className="text-sm text-red-700">{teachersResult.message}</span> : null}
         </div>
 
@@ -310,7 +281,7 @@ export default async function StaffTeachersListPage({ searchParams }: TeachersLi
                             );
                           }
                           const rate = monthly?.ratePercent ?? 0;
-                          const dim = monthly?.daysInCalendarMonth ?? calendarDaysInMonth;
+                          const dim = monthly?.daysInSchoolMonth ?? schoolDaysInMonth;
                           return (
                             <div className="space-y-0.5">
                               <div className="font-semibold tabular-nums text-foreground">
@@ -318,27 +289,9 @@ export default async function StaffTeachersListPage({ searchParams }: TeachersLi
                               </div>
                               <div className="text-xs text-muted-foreground">
                                 {presentDays.toLocaleString("en-US")} يوم حضور من أصل{" "}
-                                {dim.toLocaleString("en-US")} يومًا في الشهر
+                                {dim.toLocaleString("en-US")} يوم دوام في الشهر
                               </div>
                             </div>
                           );
                         })()}
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <DailyTeacherAttendanceCheckbox
-                          teacherId={teacher.id}
-                          attendanceDate={attendanceDate}
-                          initialPresent={isPresent}
-                        />
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
-    </div>
-  );
-}
+                      </

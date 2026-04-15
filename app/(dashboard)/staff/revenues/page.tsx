@@ -178,27 +178,7 @@ export default async function StaffRevenuesPage({ searchParams }: RevenuesPagePr
 
   return (
     <div className="p-4 flex flex-col gap-8 min-w-0" dir="rtl">
-      <div className="rounded-2xl bg-sky p-5 shadow-sm transition-shadow hover:shadow-md sm:p-6">
-        <div className="space-y-2">
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">الإيرادات</h1>
-          <p className="text-sm text-gray-600 leading-relaxed">
-            سجل الإيرادات أدناه يجمع تلقائياً دفعات أقساط الطلاب (عند التسديد من صفحة الأقساط) مع الإيرادات اليدوية التي
-            تُسجَّل في النموذج (تبرعات، دعم، إيجار، …). الملخص المالي يحسب الإجمالي مرة واحدة دون تكرار في قاعدة البيانات.
-          </p>
-          <p className="text-xs text-gray-600">
-            <Link
-              href="/staff/student-installments"
-              className="font-medium text-foreground underline-offset-4 hover:underline"
-            >
-              أقساط الطلاب
-            </Link>
-            <span className="mx-1.5 text-muted-foreground">·</span>
-            <Link href="/staff" className="font-medium text-foreground underline-offset-4 hover:underline">
-              لوحة التحكم
-            </Link>
-          </p>
-        </div>
-      </div>
+   
 
       {pageMessage ? (
         <div
@@ -225,21 +205,18 @@ export default async function StaffRevenuesPage({ searchParams }: RevenuesPagePr
       ) : (
         <div className="flex flex-col gap-3">
           <div className="flex gap-4 justify-between flex-wrap">
-            <UserCard type="إجمالي إيرادات المدرسة" count={summaryResult.totalIncome} badgeLabel="ملخص مالي" />
-            <UserCard type="منها: دفعات الطلاب" count={summaryResult.paymentsTotal} badgeLabel="أقساط" />
+            <UserCard type="إجمالي إيرادات المدرسة" count={summaryResult.totalIncome} badgeLabel="ملخص مالي" valuePrefix="$" />
+            <UserCard type="منها: دفعات الطلاب" count={summaryResult.paymentsTotal} badgeLabel="أقساط" valuePrefix="$" />
             <UserCard
               type="منها: إيرادات يدوية فقط"
               count={totalResult.success ? totalResult.total : 0}
               badgeLabel={totalResult.success ? "جدول revenues" : "تعذر الجلب"}
+              valuePrefix="$"
             />
           </div>
           {!totalResult.success ? (
             <p className="text-sm text-destructive">{totalResult.message}</p>
-          ) : (
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              مجموع دفعات الطلاب + الإيرادات الإضافية المسجّلة أدناه (كما في الملخص المالي).
-            </p>
-          )}
+          ) : null}
         </div>
       )}
 
@@ -354,7 +331,7 @@ export default async function StaffRevenuesPage({ searchParams }: RevenuesPagePr
                         <span>{row.title}</span>
                       </div>
                     </td>
-                    <td className="px-4 py-3 tabular-nums font-medium">{row.amount.toLocaleString("en-US")}</td>
+                    <td className="px-4 py-3 tabular-nums font-medium">${row.amount.toLocaleString("en-US")}</td>
                     <td className="px-4 py-3">
                       {row.canEdit ? (
                         <div className="flex flex-wrap gap-2 justify-end">
