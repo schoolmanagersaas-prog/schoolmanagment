@@ -244,7 +244,12 @@ export default async function StaffExpensesPage({ searchParams }: ExpensesPagePr
               </p>
             ) : null}
           </div>
-          <AddExpenseDialog createExpenseAction={createExpenseAction} defaultExpenseDate={defaultExpenseDate} />
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" asChild className="h-9 rounded-xl">
+              <a href="/api/exports/expenses">تصدير Excel</a>
+            </Button>
+            <AddExpenseDialog createExpenseAction={createExpenseAction} defaultExpenseDate={defaultExpenseDate} />
+          </div>
         </div>
         {!ledgerResult.success ? null : ledgerItems.length === 0 ? (
           <div className="rounded-xl border border-dashed border-muted-foreground/30 bg-background/40 p-8 text-center text-sm text-muted-foreground">

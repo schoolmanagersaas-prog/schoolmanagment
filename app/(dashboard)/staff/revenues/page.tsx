@@ -228,7 +228,12 @@ export default async function StaffRevenuesPage({ searchParams }: RevenuesPagePr
               </p>
             ) : null}
           </div>
-          <AddRevenueDialog createRevenueAction={createRevenueAction} defaultRevenueDate={defaultRevenueDate} />
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" asChild className="h-9 rounded-xl">
+              <a href="/api/exports/revenues">تصدير Excel</a>
+            </Button>
+            <AddRevenueDialog createRevenueAction={createRevenueAction} defaultRevenueDate={defaultRevenueDate} />
+          </div>
         </div>
         {!ledgerResult.success ? null : ledgerItems.length === 0 ? (
           <div className="rounded-xl border border-dashed border-muted-foreground/30 bg-background/40 p-8 text-center text-sm text-muted-foreground">
