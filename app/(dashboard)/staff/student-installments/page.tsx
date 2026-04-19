@@ -277,17 +277,17 @@ export default async function StudentInstallmentsPage({ searchParams }: { search
           </div>
         ) : (
           <div className="overflow-x-auto rounded-lg border border-border/60 bg-background/60">
-            <table className="w-full min-w-[880px] border-collapse text-sm">
+            <table className="w-full border-collapse table-auto text-sm">
               <thead>
                 <tr className="border-b border-border bg-muted/40 text-right">
-                  <th className="px-4 py-3 font-medium">اسم الطالب</th>
-                  <th className="px-4 py-3 font-medium">الصف</th>
-                  <th className="px-4 py-3 font-medium">تاريخ الاستحقاق</th>
-                  <th className="px-4 py-3 font-medium">المبلغ</th>
-                  <th className="px-4 py-3 font-medium">المدفوع</th>
-                  <th className="px-4 py-3 font-medium">المتبقي</th>
-                  <th className="px-4 py-3 font-medium whitespace-nowrap w-[1%]">دفعة</th>
-                  <th className="px-4 py-3 font-medium whitespace-nowrap w-[1%] text-right">إجراءات</th>
+                  <th className="px-2.5 py-2.5 font-medium">اسم الطالب</th>
+                  <th className="px-2.5 py-2.5 font-medium">الصف</th>
+                  <th className="px-2.5 py-2.5 font-medium">تاريخ الاستحقاق</th>
+                  <th className="px-2.5 py-2.5 font-medium">المبلغ</th>
+                  <th className="px-2.5 py-2.5 font-medium">المدفوع</th>
+                  <th className="px-2.5 py-2.5 font-medium">المتبقي</th>
+                  <th className="px-2.5 py-2.5 font-medium whitespace-nowrap w-[1%]">دفعة</th>
+                  <th className="px-2.5 py-2.5 font-medium whitespace-nowrap w-[1%] text-right">إجراءات</th>
                 </tr>
               </thead>
               <tbody>
@@ -300,15 +300,15 @@ export default async function StudentInstallmentsPage({ searchParams }: { search
                         index % 2 === 0 ? "bg-background/40" : "bg-muted/10"
                       }`}
                     >
-                      <td className="px-4 py-3 font-medium">{line.studentName}</td>
-                      <td className="px-4 py-3 text-muted-foreground">{line.className ?? "—"}</td>
-                      <td className="px-4 py-3 whitespace-nowrap tabular-nums">{line.dueDate}</td>
-                      <td className="px-4 py-3 tabular-nums">${line.totalAmount.toLocaleString("en-US")}</td>
-                      <td className="px-4 py-3 tabular-nums">${line.totalPaid.toLocaleString("en-US")}</td>
-                      <td className="px-4 py-3 tabular-nums">${line.remaining.toLocaleString("en-US")}</td>
-                      <td className="px-4 py-3">
+                      <td className="px-2.5 py-2.5 font-medium">{line.studentName}</td>
+                      <td className="px-2.5 py-2.5 text-muted-foreground">{line.className ?? "—"}</td>
+                      <td className="px-2.5 py-2.5 whitespace-nowrap tabular-nums">{line.dueDate}</td>
+                      <td className="px-2.5 py-2.5 tabular-nums">${line.totalAmount.toLocaleString("en-US")}</td>
+                      <td className="px-2.5 py-2.5 tabular-nums">${line.totalPaid.toLocaleString("en-US")}</td>
+                      <td className="px-2.5 py-2.5 tabular-nums">${line.remaining.toLocaleString("en-US")}</td>
+                      <td className="px-2.5 py-2.5">
                         {canPay ? (
-                          <form action={recordPaymentAction} className="flex flex-wrap items-center justify-end gap-1.5">
+                          <form action={recordPaymentAction} className="flex items-center justify-end gap-1 whitespace-nowrap">
                             <input type="hidden" name="studentId" value={line.studentId} />
                             <input type="hidden" name="installmentId" value={line.installmentId} />
                             <input type="hidden" name="preserveStatus" value={statusFilter} />
@@ -320,7 +320,7 @@ export default async function StudentInstallmentsPage({ searchParams }: { search
                               step="0.01"
                               placeholder="المبلغ"
                               required
-                              className="h-8 w-[6.5rem] rounded-lg text-xs"
+                              className="h-8 w-[5.25rem] rounded-lg text-xs"
                             />
                             <Button type="submit" variant="outline" size="sm" className="h-8 shrink-0 text-xs">
                               تسجيل
@@ -330,7 +330,7 @@ export default async function StudentInstallmentsPage({ searchParams }: { search
                           <span className="text-xs text-muted-foreground">—</span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-right">
+                      <td className="px-2.5 py-2.5 text-right">
                         <InstallmentRowActions
                           installmentId={line.installmentId}
                           studentId={line.studentId}

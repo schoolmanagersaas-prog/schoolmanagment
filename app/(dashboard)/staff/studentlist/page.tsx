@@ -1,10 +1,11 @@
-import { backfillAbsentForPastUnmarked, listStudents } from "@/actions/students";
+import { backfillAbsentForPastUnmarked, createStudent, deleteStudent, listStudents, updateStudent } from "@/actions/students";
 import { Button } from "@/components/ui/button";
 import { resolveSchoolId } from "@/lib/auth/resolve-school-id";
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { DailyAttendanceCheckbox } from "./daily-attendance-checkbox";
+import { StudentCreateDialog, StudentRowActions } from "./student-crud-actions";
 import { StudentListFilters } from "./student-list-filters";
 
 const STUDENT_PAGE_SIZE = 10;
@@ -15,6 +16,8 @@ type StudentListPageProps = {
     classId?: string;
     date?: string;
     page?: string;
+    status?: string;
+    message?: string;
   }>;
 };
 
@@ -29,6 +32,8 @@ type StudentListQuery = {
   classId?: string;
   date?: string;
   page?: number;
+  status?: string;
+  message?: string;
 };
 
 function buildStudentListHref(parts: StudentListQuery): string {
@@ -37,8 +42,23 @@ function buildStudentListHref(parts: StudentListQuery): string {
   if (parts.classId?.trim()) sp.set("classId", parts.classId.trim());
   if (parts.date?.trim()) sp.set("date", parts.date.trim());
   if (parts.page != null && parts.page > 1) sp.set("page", String(parts.page));
+  if (parts.status?.trim()) sp.set("status", parts.status.trim());
+  if (parts.message?.trim()) sp.set("message", parts.message.trim());
   const qs = sp.toString();
   return qs ? `/staff/studentlist?${qs}` : "/staff/studentlist";
+}
+
+function asNullableText(value: FormDataEntryValue | null): string | null {
+  const text = String(value ?? "").trim();
+  return text.length ? text : null;
+}
+
+function asNullableNumber(value: FormDataEntryValue | null): number | undefined {
+  const text = String(value ?? "").trim();
+  if (!text) return undefined;
+  const number = Number.parseFloat(text);
+  if (!Number.isFinite(number)) return undefined;
+  return number;
 }
 
 function parseDateParam(value: string | undefined): string {
@@ -136,6 +156,8 @@ function buildMonthlyStatsByStudent(
 
 export default async function StaffStudentListPage({ searchParams }: StudentListPageProps) {
   const params = (await searchParams) ?? {};
+  const flashStatus = params.status === "success" ? "success" : params.status === "error" ? "error" : null;
+  const flashMessage = params.message?.trim() || null;
   const supabase = await createClient();
   const {
     data: { user },
@@ -160,6 +182,12 @@ export default async function StaffStudentListPage({ searchParams }: StudentList
   const monthRange = parseYearMonthParam(undefined);
   const page = parsePageParam(params.page);
   const offset = (page - 1) * STUDENT_PAGE_SIZE;
+  const preserveState = {
+    q: query ?? "",
+    classId: classId ?? "",
+    date: attendanceDate,
+    page: String(page),
+  };
 
   const [{ data: schoolRow }, { data: classes }, studentsResult] = await Promise.all([
     supabase.from("schools").select("name").eq("id", schoolId).maybeSingle(),
@@ -248,6 +276,83 @@ export default async function StaffStudentListPage({ searchParams }: StudentList
   const schoolDaysInMonth = daysInSchoolMonthExcludingFriSat(monthRange.value);
   const monthlyStatsByStudent = buildMonthlyStatsByStudent(monthlyRows, schoolDaysInMonth);
 
+  async function createStudentAction(formData: FormData) {
+    "use server";
+    const preserveQ = String(formData.get("preserveQ") ?? "").trim();
+    const preserveClassId = String(formData.get("preserveClassId") ?? "").trim();
+    const preserveDate = String(formData.get("preserveDate") ?? "").trim();
+    const preservePage = parsePageParam(String(formData.get("preservePage") ?? "1"));
+    const result = await createStudent({
+      fullName: String(formData.get("fullName") ?? "").trim(),
+      classId: asNullableText(formData.get("classId")),
+      gender: (String(formData.get("gender") ?? "male").trim() === "female" ? "female" : "male") as "male" | "female",
+      baseTuition: asNullableNumber(formData.get("baseTuition")),
+      installmentDueDate: asNullableText(formData.get("installmentDueDate")) ?? undefined,
+      guardianPhone: asNullableText(formData.get("guardianPhone")),
+      address: asNullableText(formData.get("address")),
+      status: "active",
+    });
+    redirect(
+      buildStudentListHref({
+        q: preserveQ,
+        classId: preserveClassId,
+        date: preserveDate,
+        page: preservePage,
+        status: result.success ? "success" : "error",
+        message: result.message,
+      }),
+    );
+  }
+
+  async function updateStudentAction(formData: FormData) {
+    "use server";
+    const preserveQ = String(formData.get("preserveQ") ?? "").trim();
+    const preserveClassId = String(formData.get("preserveClassId") ?? "").trim();
+    const preserveDate = String(formData.get("preserveDate") ?? "").trim();
+    const preservePage = parsePageParam(String(formData.get("preservePage") ?? "1"));
+    const result = await updateStudent({
+      id: String(formData.get("studentId") ?? "").trim(),
+      fullName: String(formData.get("fullName") ?? "").trim(),
+      classId: asNullableText(formData.get("classId")),
+      gender: (String(formData.get("gender") ?? "male").trim() === "female" ? "female" : "male") as "male" | "female",
+      baseTuition: asNullableNumber(formData.get("baseTuition")),
+      guardianPhone: asNullableText(formData.get("guardianPhone")),
+      address: asNullableText(formData.get("address")),
+      status: String(formData.get("status") ?? "active").trim() === "withdrawn" ? "withdrawn" : "active",
+    });
+    redirect(
+      buildStudentListHref({
+        q: preserveQ,
+        classId: preserveClassId,
+        date: preserveDate,
+        page: preservePage,
+        status: result.success ? "success" : "error",
+        message: result.message,
+      }),
+    );
+  }
+
+  async function deleteStudentAction(formData: FormData) {
+    "use server";
+    const preserveQ = String(formData.get("preserveQ") ?? "").trim();
+    const preserveClassId = String(formData.get("preserveClassId") ?? "").trim();
+    const preserveDate = String(formData.get("preserveDate") ?? "").trim();
+    const preservePage = parsePageParam(String(formData.get("preservePage") ?? "1"));
+    const result = await deleteStudent({
+      id: String(formData.get("studentId") ?? "").trim(),
+    });
+    redirect(
+      buildStudentListHref({
+        q: preserveQ,
+        classId: preserveClassId,
+        date: preserveDate,
+        page: preservePage,
+        status: result.success ? "success" : "error",
+        message: result.message,
+      }),
+    );
+  }
+
   return (
     <div className="p-6 max-w-6xl mx-auto flex flex-col gap-6" dir="rtl">
       <section className="rounded-3xl border bg-gradient-to-l from-sky/35 via-background to-Yellow/25 p-5 shadow-sm sm:p-6">
@@ -279,6 +384,18 @@ export default async function StaffStudentListPage({ searchParams }: StudentList
         initialDate={attendanceDate}
       />
 
+      {flashStatus && flashMessage ? (
+        <div
+          className={`rounded-xl border px-4 py-3 text-sm ${
+            flashStatus === "success"
+              ? "border-green-500/40 bg-green-500/10 text-green-800"
+              : "border-red-500/40 bg-red-500/10 text-red-800"
+          }`}
+        >
+          {flashMessage}
+        </div>
+      ) : null}
+
       <section className="bg-white rounded-3xl shadow-lg border overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 bg-gray-50/80 px-6 py-4 text-sm">
           <div className="font-semibold text-gray-800">
@@ -290,7 +407,14 @@ export default async function StaffStudentListPage({ searchParams }: StudentList
               </span>
             ) : null}
           </div>
-          {!studentsResult.success ? <span className="text-sm text-red-700">{studentsResult.message}</span> : null}
+          <div className="flex items-center gap-2">
+            <StudentCreateDialog
+              classes={(classes ?? []) as { id: string; name: string }[]}
+              preserve={preserveState}
+              createStudentAction={createStudentAction}
+            />
+            {!studentsResult.success ? <span className="text-sm text-red-700">{studentsResult.message}</span> : null}
+          </div>
         </div>
 
         {!studentsResult.success ? null : studentsResult.students.length === 0 ? (
@@ -309,6 +433,7 @@ export default async function StaffStudentListPage({ searchParams }: StudentList
                     <span className="mt-0.5 block text-xs font-normal text-muted-foreground">{monthRange.value}</span>
                   </th>
                   <th className="px-4 py-3 text-center font-semibold">حاضر</th>
+                  <th className="px-4 py-3 text-right font-semibold whitespace-nowrap w-[1%]">الإجراءات</th>
                 </tr>
               </thead>
               <tbody>
@@ -361,6 +486,24 @@ export default async function StaffStudentListPage({ searchParams }: StudentList
                           studentId={student.id}
                           attendanceDate={attendanceDate}
                           initialPresent={isPresent}
+                        />
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <StudentRowActions
+                          student={{
+                            id: student.id,
+                            fullName: student.fullName,
+                            classId: student.classId,
+                            gender: student.gender,
+                            baseTuition: student.baseTuition,
+                            guardianPhone: student.guardianPhone,
+                            address: student.address,
+                            status: student.status,
+                          }}
+                          classes={(classes ?? []) as { id: string; name: string }[]}
+                          preserve={preserveState}
+                          updateStudentAction={updateStudentAction}
+                          deleteStudentAction={deleteStudentAction}
                         />
                       </td>
                     </tr>

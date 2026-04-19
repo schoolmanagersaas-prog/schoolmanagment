@@ -1,8 +1,9 @@
-import { backfillAbsentForPastTeachersUnmarked, listTeachers } from "@/actions/teachers";
+import { backfillAbsentForPastTeachersUnmarked, createTeacher, deleteTeacher, listTeachers, updateTeacher } from "@/actions/teachers";
 import { resolveSchoolId } from "@/lib/auth/resolve-school-id";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { DailyTeacherAttendanceCheckbox } from "./daily-attendance-checkbox";
+import { TeacherCreateDialog, TeacherRowActions } from "./teacher-crud-actions";
 import { TeacherListFilters } from "./teacher-list-filters";
 
 type TeachersListPageProps = {
@@ -10,8 +11,42 @@ type TeachersListPageProps = {
     q?: string;
     date?: string;
     month?: string;
+    status?: string;
+    message?: string;
   }>;
 };
+
+type TeachersListQuery = {
+  q?: string;
+  date?: string;
+  month?: string;
+  status?: string;
+  message?: string;
+};
+
+function buildTeachersListHref(parts: TeachersListQuery): string {
+  const sp = new URLSearchParams();
+  if (parts.q?.trim()) sp.set("q", parts.q.trim());
+  if (parts.date?.trim()) sp.set("date", parts.date.trim());
+  if (parts.month?.trim()) sp.set("month", parts.month.trim());
+  if (parts.status?.trim()) sp.set("status", parts.status.trim());
+  if (parts.message?.trim()) sp.set("message", parts.message.trim());
+  const qs = sp.toString();
+  return qs ? `/staff/teacherslist?${qs}` : "/staff/teacherslist";
+}
+
+function asNullableText(value: FormDataEntryValue | null): string | null {
+  const text = String(value ?? "").trim();
+  return text.length ? text : null;
+}
+
+function asNullableNumber(value: FormDataEntryValue | null): number | undefined {
+  const text = String(value ?? "").trim();
+  if (!text) return undefined;
+  const number = Number.parseFloat(text);
+  if (!Number.isFinite(number)) return undefined;
+  return number;
+}
 
 function parseDateParam(value: string | undefined): string {
   const raw = value?.trim();
@@ -105,6 +140,8 @@ function buildMonthlyStatsByTeacher(
 
 export default async function StaffTeachersListPage({ searchParams }: TeachersListPageProps) {
   const params = (await searchParams) ?? {};
+  const flashStatus = params.status === "success" ? "success" : params.status === "error" ? "error" : null;
+  const flashMessage = params.message?.trim() || null;
   const supabase = await createClient();
   const {
     data: { user },
@@ -126,6 +163,11 @@ export default async function StaffTeachersListPage({ searchParams }: TeachersLi
   const query = params.q?.trim() || undefined;
   const attendanceDate = parseDateParam(params.date);
   const monthRange = parseYearMonthParam(params.month);
+  const preserveState = {
+    q: query ?? "",
+    date: attendanceDate,
+    month: monthRange.value,
+  };
 
   const [{ data: schoolRow }, teachersResult] = await Promise.all([
     supabase.from("schools").select("name").eq("id", schoolId).maybeSingle(),
@@ -200,6 +242,71 @@ export default async function StaffTeachersListPage({ searchParams }: TeachersLi
 
   const totalTeachers = teachersResult.success ? teachersResult.total : 0;
 
+  async function createTeacherAction(formData: FormData) {
+    "use server";
+    const preserveQ = String(formData.get("preserveQ") ?? "").trim();
+    const preserveDate = String(formData.get("preserveDate") ?? "").trim();
+    const preserveMonth = String(formData.get("preserveMonth") ?? "").trim();
+    const result = await createTeacher({
+      fullName: String(formData.get("fullName") ?? "").trim(),
+      phone: asNullableText(formData.get("phone")),
+      subject: asNullableText(formData.get("subject")),
+      salary: asNullableNumber(formData.get("salary")),
+      salaryInstallmentDueDate: asNullableText(formData.get("salaryInstallmentDueDate")) ?? undefined,
+    });
+    redirect(
+      buildTeachersListHref({
+        q: preserveQ,
+        date: preserveDate,
+        month: preserveMonth,
+        status: result.success ? "success" : "error",
+        message: result.message,
+      }),
+    );
+  }
+
+  async function updateTeacherAction(formData: FormData) {
+    "use server";
+    const preserveQ = String(formData.get("preserveQ") ?? "").trim();
+    const preserveDate = String(formData.get("preserveDate") ?? "").trim();
+    const preserveMonth = String(formData.get("preserveMonth") ?? "").trim();
+    const result = await updateTeacher({
+      id: String(formData.get("teacherId") ?? "").trim(),
+      fullName: String(formData.get("fullName") ?? "").trim(),
+      phone: asNullableText(formData.get("phone")),
+      subject: asNullableText(formData.get("subject")),
+      salary: asNullableNumber(formData.get("salary")),
+    });
+    redirect(
+      buildTeachersListHref({
+        q: preserveQ,
+        date: preserveDate,
+        month: preserveMonth,
+        status: result.success ? "success" : "error",
+        message: result.message,
+      }),
+    );
+  }
+
+  async function deleteTeacherAction(formData: FormData) {
+    "use server";
+    const preserveQ = String(formData.get("preserveQ") ?? "").trim();
+    const preserveDate = String(formData.get("preserveDate") ?? "").trim();
+    const preserveMonth = String(formData.get("preserveMonth") ?? "").trim();
+    const result = await deleteTeacher({
+      id: String(formData.get("teacherId") ?? "").trim(),
+    });
+    redirect(
+      buildTeachersListHref({
+        q: preserveQ,
+        date: preserveDate,
+        month: preserveMonth,
+        status: result.success ? "success" : "error",
+        message: result.message,
+      }),
+    );
+  }
+
   return (
     <div className="p-6 max-w-6xl mx-auto flex flex-col gap-6" dir="rtl">
       <section className="rounded-3xl border bg-gradient-to-l from-sky/35 via-background to-Yellow/25 p-5 shadow-sm sm:p-6">
@@ -230,10 +337,25 @@ export default async function StaffTeachersListPage({ searchParams }: TeachersLi
         initialMonth={monthRange.value}
       />
 
+      {flashStatus && flashMessage ? (
+        <div
+          className={`rounded-xl border px-4 py-3 text-sm ${
+            flashStatus === "success"
+              ? "border-green-500/40 bg-green-500/10 text-green-800"
+              : "border-red-500/40 bg-red-500/10 text-red-800"
+          }`}
+        >
+          {flashMessage}
+        </div>
+      ) : null}
+
       <section className="bg-white rounded-3xl shadow-lg border overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 bg-gray-50/80 px-6 py-4 text-sm">
           <div className="font-semibold text-gray-800">جدول المعلمين والحضور</div>
-          {!teachersResult.success ? <span className="text-sm text-red-700">{teachersResult.message}</span> : null}
+          <div className="flex items-center gap-2">
+            <TeacherCreateDialog preserve={preserveState} createTeacherAction={createTeacherAction} />
+            {!teachersResult.success ? <span className="text-sm text-red-700">{teachersResult.message}</span> : null}
+          </div>
         </div>
 
         {!teachersResult.success ? null : teachersResult.teachers.length === 0 ? (
@@ -252,6 +374,7 @@ export default async function StaffTeachersListPage({ searchParams }: TeachersLi
                     <span className="mt-0.5 block text-xs font-normal text-muted-foreground">{monthRange.value}</span>
                   </th>
                   <th className="px-4 py-3 text-center font-semibold">حاضر</th>
+                  <th className="px-4 py-3 text-right font-semibold whitespace-nowrap w-[1%]">الإجراءات</th>
                 </tr>
               </thead>
               <tbody>
@@ -300,6 +423,20 @@ export default async function StaffTeachersListPage({ searchParams }: TeachersLi
                           teacherId={teacher.id}
                           attendanceDate={attendanceDate}
                           initialPresent={isPresent}
+                        />
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <TeacherRowActions
+                          teacher={{
+                            id: teacher.id,
+                            fullName: teacher.fullName,
+                            phone: teacher.phone,
+                            salary: teacher.salary,
+                            subject: teacher.subject,
+                          }}
+                          preserve={preserveState}
+                          updateTeacherAction={updateTeacherAction}
+                          deleteTeacherAction={deleteTeacherAction}
                         />
                       </td>
                     </tr>
