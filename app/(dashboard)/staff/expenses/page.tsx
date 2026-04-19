@@ -1,8 +1,10 @@
 import {
   createExpense,
+  deleteTeacherSalaryPayment,
   deleteExpense,
   getFinancialSummary,
   listExpenseLedger,
+  updateTeacherSalaryPayment,
   updateExpense,
 } from "@/actions/expenses";
 import UserCard from "@/components/component/UserCard";
@@ -13,6 +15,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AddExpenseDialog } from "./add-expense-dialog";
 import { ExpenseRowActions } from "./expense-row-actions";
+import { TeacherSalaryPaymentRowActions } from "./teacher-salary-payment-row-actions";
 
 type ExpensesPageProps = {
   searchParams?: Promise<{
@@ -155,6 +158,36 @@ export default async function StaffExpensesPage({ searchParams }: ExpensesPagePr
     redirect(buildRedirectUrl(result.success ? "success" : "error", result.message));
   }
 
+  async function updateTeacherSalaryPaymentAction(formData: FormData) {
+    "use server";
+    const paymentId = String(formData.get("paymentId") ?? "").trim();
+    const amount = asPositiveNumber(formData.get("amount"));
+    const paidAt = asNullableText(formData.get("paidAt"));
+
+    if (!paymentId) {
+      redirect(buildRedirectUrl("error", "معرّف دفعة الراتب مفقود."));
+      return;
+    }
+    if (amount === undefined) {
+      redirect(buildRedirectUrl("error", "أدخل مبلغ دفعة صالحًا."));
+      return;
+    }
+
+    const result = await updateTeacherSalaryPayment({
+      paymentId,
+      amount,
+      paidAt: paidAt ?? undefined,
+    });
+    redirect(buildRedirectUrl(result.success ? "success" : "error", result.message));
+  }
+
+  async function deleteTeacherSalaryPaymentAction(formData: FormData) {
+    "use server";
+    const paymentId = String(formData.get("paymentId") ?? "").trim();
+    const result = await deleteTeacherSalaryPayment({ paymentId });
+    redirect(buildRedirectUrl(result.success ? "success" : "error", result.message));
+  }
+
   const defaultExpenseDate = new Date().toISOString().slice(0, 10);
 
   return (
@@ -249,14 +282,24 @@ export default async function StaffExpensesPage({ searchParams }: ExpensesPagePr
                     <td className="px-4 py-3 tabular-nums font-medium">${row.amount.toLocaleString("en-US")}</td>
                     <td className="px-4 py-3">
                       {row.canEdit ? (
-                        <ExpenseRowActions
-                          id={row.id}
-                          title={row.title}
-                          amount={row.amount}
-                          expenseDate={row.expenseDate}
-                          updateExpenseAction={updateExpenseAction}
-                          deleteExpenseAction={deleteExpenseAction}
-                        />
+                        row.source === "manual" ? (
+                          <ExpenseRowActions
+                            id={row.id}
+                            title={row.title}
+                            amount={row.amount}
+                            expenseDate={row.expenseDate}
+                            updateExpenseAction={updateExpenseAction}
+                            deleteExpenseAction={deleteExpenseAction}
+                          />
+                        ) : (
+                          <TeacherSalaryPaymentRowActions
+                            paymentId={row.id}
+                            amount={row.amount}
+                            expenseDate={row.expenseDate}
+                            updateTeacherSalaryPaymentAction={updateTeacherSalaryPaymentAction}
+                            deleteTeacherSalaryPaymentAction={deleteTeacherSalaryPaymentAction}
+                          />
+                        )
                       ) : (
                         <div className="flex items-center justify-end gap-2 whitespace-nowrap">
                           <Button variant="outline" size="sm" asChild className="h-8 rounded-lg text-xs">

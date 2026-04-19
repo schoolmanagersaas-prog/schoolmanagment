@@ -94,6 +94,8 @@ export type ExpenseLedgerItem = {
   createdAt: string;
   type: ExpenseType;
   canEdit: boolean;
+  teacherId: string | null;
+  installmentId: string | null;
 };
 
 export type ListExpenseLedgerResult =
@@ -115,6 +117,16 @@ export type ListExpenseLedgerResult =
 export type TotalExpensesResult =
   | { success: true; total: number }
   | { success: false; total: 0; message: string };
+
+export type UpdateTeacherSalaryPaymentInput = {
+  paymentId: string;
+  amount: number;
+  paidAt?: string;
+};
+
+export type DeleteTeacherSalaryPaymentInput = {
+  paymentId: string;
+};
 
 export type FinancialSummaryResult =
   | {
@@ -410,6 +422,8 @@ export async function listExpenseLedger(filters?: ListExpensesFilters): Promise<
       createdAt: m.createdAt,
       type: m.type,
       canEdit: true,
+      teacherId: null,
+      installmentId: null,
     };
   });
 
@@ -439,7 +453,9 @@ export async function listExpenseLedger(filters?: ListExpensesFilters): Promise<
         expenseDate: paidAt.slice(0, 10),
         createdAt: paidAt,
         type: "salary" as const,
-        canEdit: false,
+        canEdit: true,
+        teacherId: p.teacher_id,
+        installmentId: p.installment_id ?? null,
       };
     });
   }
@@ -638,4 +654,72 @@ export async function deleteExpense(input: DeleteExpenseInput): Promise<ActionRe
 
   revalidateExpensesViews();
   return { success: true, message: "تم حذف المصروف." };
+}
+
+export async function updateTeacherSalaryPayment(input: UpdateTeacherSalaryPaymentInput): Promise<ActionResult> {
+  const paymentId = input.paymentId?.trim();
+  const amount = toStrictlyPositiveAmount(input.amount);
+  const paidAtDate = parseDateOnly(input.paidAt) ?? new Date().toISOString().slice(0, 10);
+
+  if (!paymentId) {
+    return { success: false, message: "معرّف دفعة الراتب مطلوب." };
+  }
+  if (amount <= 0) {
+    return { success: false, message: "المبلغ يجب أن يكون أكبر من صفر." };
+  }
+
+  const auth = await getAuthContext();
+  if (!auth.ok) return { success: false, message: auth.message };
+
+  const supabase = await createClient();
+  const { data: existing, error: existingError } = await supabase
+    .from("teacher_payments")
+    .select("id")
+    .eq("id", paymentId)
+    .eq("school_id", auth.schoolId)
+    .maybeSingle();
+
+  if (existingError || !existing) {
+    return { success: false, message: existingError?.message ?? "دفعة الراتب غير موجودة." };
+  }
+
+  const { error } = await supabase
+    .from("teacher_payments")
+    .update({
+      amount,
+      paid_at: `${paidAtDate}T12:00:00.000Z`,
+    })
+    .eq("id", paymentId)
+    .eq("school_id", auth.schoolId);
+
+  if (error) {
+    return { success: false, message: error.message ?? "فشل تعديل دفعة الراتب." };
+  }
+
+  revalidateExpensesViews();
+  return { success: true, message: "تم تعديل دفعة الراتب بنجاح." };
+}
+
+export async function deleteTeacherSalaryPayment(input: DeleteTeacherSalaryPaymentInput): Promise<ActionResult> {
+  const paymentId = input.paymentId?.trim();
+  if (!paymentId) {
+    return { success: false, message: "معرّف دفعة الراتب مطلوب." };
+  }
+
+  const auth = await getAuthContext();
+  if (!auth.ok) return { success: false, message: auth.message };
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("teacher_payments")
+    .delete()
+    .eq("id", paymentId)
+    .eq("school_id", auth.schoolId);
+
+  if (error) {
+    return { success: false, message: error.message ?? "فشل حذف دفعة الراتب." };
+  }
+
+  revalidateExpensesViews();
+  return { success: true, message: "تم حذف دفعة الراتب بنجاح." };
 }
