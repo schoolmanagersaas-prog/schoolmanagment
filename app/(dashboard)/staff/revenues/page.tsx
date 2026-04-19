@@ -199,7 +199,7 @@ export default async function StaffRevenuesPage({ searchParams }: RevenuesPagePr
         </div>
       ) : (
         <div className="flex flex-col gap-3">
-          <div className="flex gap-4 justify-between flex-wrap">
+          <div className="flex flex-wrap items-stretch justify-start gap-4">
             <UserCard type="إجمالي إيرادات المدرسة" count={summaryResult.totalIncome} badgeLabel="ملخص مالي" valuePrefix="$" />
             <UserCard type="منها: دفعات الطلاب" count={summaryResult.paymentsTotal} badgeLabel="أقساط" valuePrefix="$" />
             <UserCard
