@@ -422,19 +422,10 @@ export default async function StaffStudentListPage({ searchParams }: StudentList
             <table className="w-full min-w-[860px] border-collapse text-sm mt-4">
               <thead>
                 <tr className="border-b bg-white text-right text-gray-800">
-                  <th className="px-4 py-3 font-semibold text-center">المعرّف</th>
                   <th className="px-4 py-3 font-semibold text-center">الاسم</th>
-                  <th className="hidden md:table-cell px-4 py-3 font-semibold text-center">اللقب</th>
-                  <th className="hidden lg:table-cell px-4 py-3 font-semibold text-center">الأب</th>
-                  <th className="hidden lg:table-cell px-4 py-3 font-semibold text-center">الأم</th>
-                  <th className="hidden md:table-cell px-4 py-3 font-semibold text-center">الصف</th>
-                  <th className="hidden md:table-cell px-4 py-3 font-semibold text-center">النوع</th>
-                  <th className="hidden xl:table-cell px-4 py-3 font-semibold text-center">مكان/تاريخ الولادة</th>
-                  <th className="hidden xl:table-cell px-4 py-3 font-semibold text-center">محل/تاريخ القيد</th>
-                  <th className="hidden xl:table-cell px-4 py-3 font-semibold text-center">تاريخ الانتساب</th>
-                  <th className="hidden xl:table-cell px-4 py-3 font-semibold text-center">المدرسة السابقة</th>
-                  <th className="hidden lg:table-cell px-4 py-3 font-semibold text-center">القسط الأساسي</th>
-                  <th className="hidden md:table-cell px-4 py-3 font-semibold text-center">نسبة الحضور</th>
+                  <th className="px-4 py-3 font-semibold text-center">الصف</th>
+                  <th className="px-4 py-3 font-semibold text-center">القسط الأساسي</th>
+                  <th className="px-4 py-3 font-semibold text-center">نسبة الحضور</th>
                   <th className="px-4 py-3 font-semibold text-center whitespace-nowrap">الحضور اليومي</th>
                   <th className="px-4 py-3 text-start font-semibold whitespace-nowrap">الاجراءات</th>
                 </tr>
@@ -449,7 +440,6 @@ export default async function StaffStudentListPage({ searchParams }: StudentList
                   const displayId = offset + index + 1;
                   return (
                     <tr key={student.id} className="hover:bg-slate-100 border-b even:bg-slate-50">
-                      <td className="px-4 py-3 text-center font-medium">{displayId}</td>
                       <td className="w-full md:w-auto flex flex-row gap-3 m-3">
                         <div className="flex size-10 items-center justify-center rounded-full bg-sky/20 text-sm font-bold text-sky-700 md:hidden xl:flex">
                           {student.fullName.slice(0, 1)}
@@ -459,25 +449,11 @@ export default async function StaffStudentListPage({ searchParams }: StudentList
                           <h4 className="text-xs text-gray-500">{student.className ?? "بدون صف"}</h4>
                         </div>
                       </td>
-                      <td className="hidden md:table-cell px-4 py-3 text-center">{student.lastName}</td>
-                      <td className="hidden lg:table-cell px-4 py-3 text-center">{student.fatherName ?? "—"}</td>
-                      <td className="hidden lg:table-cell px-4 py-3 text-center">{student.motherName ?? "—"}</td>
-                      <td className="hidden md:table-cell px-4 py-3 text-center">{student.className ?? "—"}</td>
-                      <td className="hidden md:table-cell px-4 py-3 text-center">
-                        {student.gender === "male" ? "ذكر" : "أنثى"}
-                      </td>
-                      <td className="hidden xl:table-cell px-4 py-3 text-center">
-                        {(student.birthPlace || student.birthDate) ? `${student.birthPlace ?? "—"} / ${student.birthDate ?? "—"}` : "—"}
-                      </td>
-                      <td className="hidden xl:table-cell px-4 py-3 text-center">
-                        {(student.registryPlace || student.registryDate) ? `${student.registryPlace ?? "—"} / ${student.registryDate ?? "—"}` : "—"}
-                      </td>
-                      <td className="hidden xl:table-cell px-4 py-3 text-center">{student.enrollmentDate ?? "—"}</td>
-                      <td className="hidden xl:table-cell px-4 py-3 text-center">{student.previousSchool ?? "—"}</td>
-                      <td className="hidden lg:table-cell px-4 py-3 text-center">
+                      <td className="px-4 py-3 text-center">{student.className ?? "—"}</td>
+                      <td className="px-4 py-3 text-center">
                         ${student.baseTuition.toLocaleString("en-US")}
                       </td>
-                      <td className="hidden md:table-cell px-4 py-3 text-center">
+                      <td className="px-4 py-3 text-center">
                         <div className="font-semibold tabular-nums text-foreground">{rate.toLocaleString("en-US")}%</div>
                         <div className="text-xs text-muted-foreground">{attendedDays.toLocaleString("en-US")} يوم من أصل 22</div>
                       </td>
@@ -495,12 +471,14 @@ export default async function StaffStudentListPage({ searchParams }: StudentList
                           <StudentRowActions
                             student={{
                               id: student.id,
+                              displayId,
                               firstName: student.firstName,
                               lastName: student.lastName,
                               fatherName: student.fatherName,
                               motherName: student.motherName,
                               fullName: student.fullName,
                               classId: student.classId,
+                              className: student.className,
                               gender: student.gender,
                               birthPlace: student.birthPlace,
                               birthDate: student.birthDate,

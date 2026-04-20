@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef } from "react";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Eye, Pencil, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,12 +15,14 @@ type ClassItem = {
 
 type StudentItem = {
   id: string;
+  displayId?: number;
   firstName: string;
   lastName: string;
   fatherName: string | null;
   motherName: string | null;
   fullName: string;
   classId: string | null;
+  className?: string | null;
   gender: "male" | "female";
   birthPlace: string | null;
   birthDate: string | null;
@@ -202,12 +204,21 @@ export function StudentRowActions({
   updateStudentAction,
   deleteStudentAction,
 }: StudentRowActionsProps) {
+  const viewRef = useRef<HTMLDialogElement>(null);
   const editRef = useRef<HTMLDialogElement>(null);
   const delRef = useRef<HTMLDialogElement>(null);
 
   return (
     <>
       <div className="flex items-center gap-2">
+        <button
+          type="button"
+          className="h-8 w-8 flex items-center justify-center rounded-full bg-Yellow text-foreground"
+          onClick={() => viewRef.current?.showModal()}
+          title="عرض"
+        >
+          <Eye className="size-4" />
+        </button>
         <button
           type="button"
           className="h-8 w-8 flex items-center justify-center rounded-full bg-sky text-white"
@@ -225,6 +236,40 @@ export function StudentRowActions({
           <Trash2 className="size-4" />
         </button>
       </div>
+
+      <dialog
+        ref={viewRef}
+        className="fixed left-1/2 top-1/2 z-50 m-0 h-fit w-[min(92vw,50rem)] -translate-x-1/2 -translate-y-1/2 rounded-lg border bg-background p-5 shadow-lg [&::backdrop]:bg-black/40"
+      >
+        <div className="space-y-4">
+          <div className="border-b pb-3">
+            <h3 className="text-lg font-bold">ورقة بيانات الطالب</h3>
+            <p className="text-xs text-muted-foreground">عرض فقط - غير قابل للتعديل</p>
+          </div>
+          <div className="grid grid-cols-1 gap-2 text-sm md:grid-cols-2">
+            <div className="rounded-md border p-2"><span className="font-semibold">المعرّف:</span> {student.displayId ?? "—"}</div>
+            <div className="rounded-md border p-2"><span className="font-semibold">الاسم الكامل:</span> {student.fullName}</div>
+            <div className="rounded-md border p-2"><span className="font-semibold">الاسم:</span> {student.firstName}</div>
+            <div className="rounded-md border p-2"><span className="font-semibold">اللقب:</span> {student.lastName}</div>
+            <div className="rounded-md border p-2"><span className="font-semibold">الأب:</span> {student.fatherName ?? "—"}</div>
+            <div className="rounded-md border p-2"><span className="font-semibold">الأم:</span> {student.motherName ?? "—"}</div>
+            <div className="rounded-md border p-2"><span className="font-semibold">الجنس:</span> {student.gender === "male" ? "ذكر" : "أنثى"}</div>
+            <div className="rounded-md border p-2"><span className="font-semibold">الصف:</span> {student.className ?? "—"}</div>
+            <div className="rounded-md border p-2"><span className="font-semibold">مكان/تاريخ الولادة:</span> {(student.birthPlace || student.birthDate) ? `${student.birthPlace ?? "—"} / ${student.birthDate ?? "—"}` : "—"}</div>
+            <div className="rounded-md border p-2"><span className="font-semibold">محل/تاريخ القيد:</span> {(student.registryPlace || student.registryDate) ? `${student.registryPlace ?? "—"} / ${student.registryDate ?? "—"}` : "—"}</div>
+            <div className="rounded-md border p-2"><span className="font-semibold">تاريخ الانتساب:</span> {student.enrollmentDate ?? "—"}</div>
+            <div className="rounded-md border p-2"><span className="font-semibold">المدرسة السابقة:</span> {student.previousSchool ?? "—"}</div>
+            <div className="rounded-md border p-2"><span className="font-semibold">القسط الأساسي:</span> ${student.baseTuition.toLocaleString("en-US")}</div>
+            <div className="rounded-md border p-2"><span className="font-semibold">هاتف ولي الأمر:</span> {student.guardianPhone ?? "—"}</div>
+            <div className="rounded-md border p-2 md:col-span-2"><span className="font-semibold">العنوان:</span> {student.address ?? "—"}</div>
+          </div>
+          <div className="flex justify-end">
+            <Button type="button" variant="outline" size="sm" onClick={() => viewRef.current?.close()}>
+              إغلاق
+            </Button>
+          </div>
+        </div>
+      </dialog>
 
       <dialog
         ref={editRef}
