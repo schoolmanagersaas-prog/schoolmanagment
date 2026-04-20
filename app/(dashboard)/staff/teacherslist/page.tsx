@@ -1,16 +1,20 @@
 import { backfillAbsentForPastTeachersUnmarked, createTeacher, deleteTeacher, listTeachers, updateTeacher } from "@/actions/teachers";
+import Pagination from "@/components/component/Pagination";
 import { resolveSchoolId } from "@/lib/auth/resolve-school-id";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { DailyTeacherAttendanceCheckbox } from "./daily-attendance-checkbox";
+import { InstantTeacherFilters } from "./instant-teacher-filters";
 import { TeacherCreateDialog, TeacherRowActions } from "./teacher-crud-actions";
-import { TeacherListFilters } from "./teacher-list-filters";
+
+const TEACHER_PAGE_SIZE = 20;
 
 type TeachersListPageProps = {
   searchParams?: Promise<{
     q?: string;
     date?: string;
     month?: string;
+    page?: string;
     status?: string;
     message?: string;
   }>;
@@ -20,15 +24,23 @@ type TeachersListQuery = {
   q?: string;
   date?: string;
   month?: string;
+  page?: number;
   status?: string;
   message?: string;
 };
+
+function parsePageParam(value: string | undefined): number {
+  const n = Number.parseInt(String(value ?? "").trim() || "1", 10);
+  if (!Number.isFinite(n) || n < 1) return 1;
+  return n;
+}
 
 function buildTeachersListHref(parts: TeachersListQuery): string {
   const sp = new URLSearchParams();
   if (parts.q?.trim()) sp.set("q", parts.q.trim());
   if (parts.date?.trim()) sp.set("date", parts.date.trim());
   if (parts.month?.trim()) sp.set("month", parts.month.trim());
+  if (parts.page != null && parts.page > 1) sp.set("page", String(parts.page));
   if (parts.status?.trim()) sp.set("status", parts.status.trim());
   if (parts.message?.trim()) sp.set("message", parts.message.trim());
   const qs = sp.toString();
@@ -163,6 +175,8 @@ export default async function StaffTeachersListPage({ searchParams }: TeachersLi
   const query = params.q?.trim() || undefined;
   const attendanceDate = parseDateParam(params.date);
   const monthRange = parseYearMonthParam(params.month);
+  const page = parsePageParam(params.page);
+  const offset = (page - 1) * TEACHER_PAGE_SIZE;
   const preserveState = {
     q: query ?? "",
     date: attendanceDate,
@@ -173,7 +187,8 @@ export default async function StaffTeachersListPage({ searchParams }: TeachersLi
     supabase.from("schools").select("name").eq("id", schoolId).maybeSingle(),
     listTeachers({
       query,
-      limit: 1000,
+      limit: TEACHER_PAGE_SIZE,
+      offset,
       attendanceFrom: attendanceDate,
       attendanceTo: attendanceDate,
     }),
@@ -241,6 +256,17 @@ export default async function StaffTeachersListPage({ searchParams }: TeachersLi
   const monthlyStatsByTeacher = buildMonthlyStatsByTeacher(monthlyRows, schoolDaysInMonth);
 
   const totalTeachers = teachersResult.success ? teachersResult.total : 0;
+  const totalPages = Math.max(1, Math.ceil(totalTeachers / TEACHER_PAGE_SIZE));
+  if (teachersResult.success && page > totalPages) {
+    redirect(
+      buildTeachersListHref({
+        q: query,
+        date: attendanceDate,
+        month: monthRange.value,
+        page: totalTeachers === 0 ? 1 : totalPages,
+      }),
+    );
+  }
 
   async function createTeacherAction(formData: FormData) {
     "use server";
@@ -249,6 +275,10 @@ export default async function StaffTeachersListPage({ searchParams }: TeachersLi
     const preserveMonth = String(formData.get("preserveMonth") ?? "").trim();
     const result = await createTeacher({
       fullName: String(formData.get("fullName") ?? "").trim(),
+      academicQualification: asNullableText(formData.get("academicQualification")),
+      certificateObtainedDate: asNullableText(formData.get("certificateObtainedDate")) ?? undefined,
+      certificateSource: asNullableText(formData.get("certificateSource")),
+      yearsOfExperience: asNullableNumber(formData.get("yearsOfExperience")),
       phone: asNullableText(formData.get("phone")),
       subject: asNullableText(formData.get("subject")),
       salary: asNullableNumber(formData.get("salary")),
@@ -273,6 +303,10 @@ export default async function StaffTeachersListPage({ searchParams }: TeachersLi
     const result = await updateTeacher({
       id: String(formData.get("teacherId") ?? "").trim(),
       fullName: String(formData.get("fullName") ?? "").trim(),
+      academicQualification: asNullableText(formData.get("academicQualification")),
+      certificateObtainedDate: asNullableText(formData.get("certificateObtainedDate")) ?? undefined,
+      certificateSource: asNullableText(formData.get("certificateSource")),
+      yearsOfExperience: asNullableNumber(formData.get("yearsOfExperience")),
       phone: asNullableText(formData.get("phone")),
       subject: asNullableText(formData.get("subject")),
       salary: asNullableNumber(formData.get("salary")),
@@ -308,34 +342,8 @@ export default async function StaffTeachersListPage({ searchParams }: TeachersLi
   }
 
   return (
-    <div className="p-6 max-w-6xl mx-auto flex flex-col gap-6" dir="rtl">
-      <section className="rounded-3xl border bg-gradient-to-l from-sky/35 via-background to-Yellow/25 p-5 shadow-sm sm:p-6">
-        <div className="flex flex-col gap-3">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-gray-900">قائمة المعلمين</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {schoolName} · متابعة الحضور اليومي ونسبة الحضور الشهرية للمعلمين.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2 text-xs">
-            <span className="rounded-full border border-border/60 bg-background/80 px-3 py-1.5 text-foreground">
-              عدد المعلمين: {teachersResult.success ? totalTeachers.toLocaleString("en-US") : "—"}
-            </span>
-            <span className="rounded-full border border-border/60 bg-background/80 px-3 py-1.5 text-foreground">
-              تاريخ الحضور: {attendanceDate}
-            </span>
-            <span className="rounded-full border border-border/60 bg-background/80 px-3 py-1.5 text-foreground">
-              شهر النسبة: {monthRange.value}
-            </span>
-          </div>
-        </div>
-      </section>
-
-      <TeacherListFilters
-        initialQuery={query ?? ""}
-        initialDate={attendanceDate}
-        initialMonth={monthRange.value}
-      />
+    <div className="bg-white p-4 rounded-md mt-4 max-w-6xl mx-auto" dir="rtl">
+      <p className="mb-2 text-xs text-muted-foreground">{schoolName}</p>
 
       {flashStatus && flashMessage ? (
         <div
@@ -349,87 +357,87 @@ export default async function StaffTeachersListPage({ searchParams }: TeachersLi
         </div>
       ) : null}
 
-      <section className="bg-white rounded-3xl shadow-lg border overflow-hidden">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 bg-gray-50/80 px-6 py-4 text-sm">
-          <div className="font-semibold text-gray-800">جدول المعلمين والحضور</div>
-          <div className="flex items-center gap-2">
-            <TeacherCreateDialog preserve={preserveState} createTeacherAction={createTeacherAction} />
-            {!teachersResult.success ? <span className="text-sm text-red-700">{teachersResult.message}</span> : null}
+      <section className="bg-white rounded-md overflow-hidden">
+        <div className="flex items-center justify-between">
+          <h1 className="hidden md:block text-lg font-semibold mr-2">قائمة الموظفين</h1>
+          <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
+            <InstantTeacherFilters initialQuery={query ?? ""} initialDate={attendanceDate} initialMonth={monthRange.value} />
+            <div className="flex items-center gap-4">
+              <TeacherCreateDialog preserve={preserveState} createTeacherAction={createTeacherAction} />
+              {!teachersResult.success ? <span className="text-sm text-red-700">{teachersResult.message}</span> : null}
+            </div>
           </div>
         </div>
 
         {!teachersResult.success ? null : teachersResult.teachers.length === 0 ? (
-          <p className="p-8 text-center text-sm text-muted-foreground">لا يوجد معلمون مطابقون.</p>
+          <p className="p-8 text-center text-sm text-muted-foreground">لا يوجد موظفون مطابقون.</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[860px] border-collapse text-sm">
+            <table className="w-full min-w-[860px] border-collapse text-sm mt-4">
               <thead>
-                <tr className="border-b bg-muted/50 text-right text-gray-800">
-                  <th className="px-4 py-3 font-semibold">الاسم</th>
-                  <th className="px-4 py-3 font-semibold">المادة</th>
-                  <th className="px-4 py-3 font-semibold">الهاتف</th>
-                  <th className="px-4 py-3 font-semibold">الراتب</th>
-                  <th className="px-4 py-3 font-semibold">
-                    نسبة الحضور
-                    <span className="mt-0.5 block text-xs font-normal text-muted-foreground">{monthRange.value}</span>
-                  </th>
-                  <th className="px-4 py-3 text-center font-semibold">حاضر</th>
-                  <th className="px-4 py-3 text-right font-semibold whitespace-nowrap w-[1%]">الإجراءات</th>
+                <tr className="border-b bg-white text-right text-gray-800">
+                  <th className="px-4 py-3 font-semibold text-center">الاسم</th>
+                  <th className="px-4 py-3 font-semibold text-center">المادة</th>
+                  <th className="px-4 py-3 font-semibold text-center">الهاتف</th>
+                  <th className="px-4 py-3 font-semibold text-center">الراتب</th>
+                  <th className="px-4 py-3 font-semibold text-center">المؤهل العلمي</th>
+                  <th className="px-4 py-3 font-semibold text-center">نسبة الحضور</th>
+                  <th className="px-4 py-3 font-semibold text-center whitespace-nowrap">الحضور اليومي</th>
+                  <th className="px-4 py-3 text-start font-semibold whitespace-nowrap">الاجراءات</th>
                 </tr>
               </thead>
               <tbody>
-                {teachersResult.teachers.map((teacher) => {
+                {teachersResult.teachers.map((teacher, index) => {
                   const isPresent = presentByTeacher.get(teacher.id) === true;
                   const monthly = monthlyStatsByTeacher.get(teacher.id);
+                  const displayId = offset + index + 1;
                   return (
-                    <tr key={teacher.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50/80">
-                      <td className="px-4 py-3 font-medium text-gray-900">{teacher.fullName}</td>
-                      <td className="px-4 py-3 text-muted-foreground">{teacher.subject ?? "—"}</td>
-                      <td className="px-4 py-3 text-muted-foreground tabular-nums">{teacher.phone ?? "—"}</td>
-                      <td className="px-4 py-3 tabular-nums text-foreground">
-                        {teacher.salary.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                    <tr key={teacher.id} className="hover:bg-slate-100 border-b even:bg-slate-50">
+                      <td className="px-4 py-3 text-center font-medium text-gray-900">{teacher.fullName}</td>
+                      <td className="px-4 py-3 text-center text-muted-foreground">{teacher.subject ?? "—"}</td>
+                      <td className="px-4 py-3 text-center text-muted-foreground tabular-nums">{teacher.phone ?? "—"}</td>
+                      <td className="px-4 py-3 text-center tabular-nums text-foreground">
+                        ${teacher.salary.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
                       </td>
+                      <td className="px-4 py-3 text-center text-muted-foreground">{teacher.academicQualification ?? "—"}</td>
                       <td className="px-4 py-3 text-center">
                         {(() => {
                           const presentDays = monthly?.presentDays ?? 0;
                           const hasAnyRecord = (monthly?.recordedDays ?? 0) > 0;
                           if (!hasAnyRecord && presentDays === 0) {
-                            return (
-                              <span
-                                className="text-muted-foreground"
-                                title="لا توجد أيام مسجّلة في هذا الشهر"
-                              >
-                                —
-                              </span>
-                            );
+                            return <span className="text-muted-foreground">—</span>;
                           }
                           const rate = monthly?.ratePercent ?? 0;
                           const dim = monthly?.daysInSchoolMonth ?? schoolDaysInMonth;
                           return (
                             <div className="space-y-0.5">
-                              <div className="font-semibold tabular-nums text-foreground">
-                                {rate.toLocaleString("en-US")}%
-                              </div>
+                              <div className="font-semibold tabular-nums text-foreground">{rate.toLocaleString("en-US")}%</div>
                               <div className="text-xs text-muted-foreground">
-                                {presentDays.toLocaleString("en-US")} يوم حضور من أصل{" "}
-                                {dim.toLocaleString("en-US")} يوم دوام في الشهر
+                                {presentDays.toLocaleString("en-US")} يوم حضور من أصل {dim.toLocaleString("en-US")} يوم دوام في الشهر
                               </div>
                             </div>
                           );
                         })()}
                       </td>
-                      <td className="px-4 py-3 text-center">
-                        <DailyTeacherAttendanceCheckbox
-                          teacherId={teacher.id}
-                          attendanceDate={attendanceDate}
-                          initialPresent={isPresent}
-                        />
+                      <td className="px-4 py-3">
+                        <div className="flex items-center justify-center">
+                          <DailyTeacherAttendanceCheckbox
+                            teacherId={teacher.id}
+                            attendanceDate={attendanceDate}
+                            initialPresent={isPresent}
+                          />
+                        </div>
                       </td>
-                      <td className="px-4 py-3 text-right">
+                      <td className="px-4 py-3">
                         <TeacherRowActions
                           teacher={{
                             id: teacher.id,
+                            displayId,
                             fullName: teacher.fullName,
+                            academicQualification: teacher.academicQualification,
+                            certificateObtainedDate: teacher.certificateObtainedDate,
+                            certificateSource: teacher.certificateSource,
+                            yearsOfExperience: teacher.yearsOfExperience,
                             phone: teacher.phone,
                             salary: teacher.salary,
                             subject: teacher.subject,
@@ -446,6 +454,7 @@ export default async function StaffTeachersListPage({ searchParams }: TeachersLi
             </table>
           </div>
         )}
+        {teachersResult.success && totalTeachers > 0 ? <Pagination currentPage={page} totalPages={totalPages} /> : null}
       </section>
     </div>
   );

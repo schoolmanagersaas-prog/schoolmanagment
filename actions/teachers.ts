@@ -15,10 +15,14 @@ type AuthContext =
   | { ok: true; userId: string; schoolId: string }
   | { ok: false; message: string };
 
-/** صف من جدول teachers حسب schame.md: full_name, phone, salary, subject */
+/** صف من جدول teachers */
 type TeacherRow = {
   id: string;
   full_name: string;
+  academic_qualification: string | null;
+  certificate_obtained_date: string | null;
+  certificate_source: string | null;
+  years_of_experience: number | null;
   phone: string | null;
   salary: number | string;
   subject: string | null;
@@ -44,6 +48,10 @@ type TeacherAttendanceRow = {
 
 export type CreateTeacherInput = {
   fullName: string;
+  academicQualification?: string | null;
+  certificateObtainedDate?: string | null;
+  certificateSource?: string | null;
+  yearsOfExperience?: number;
   phone?: string | null;
   salary?: number;
   subject?: string | null;
@@ -54,6 +62,10 @@ export type CreateTeacherInput = {
 export type UpdateTeacherInput = {
   id: string;
   fullName?: string;
+  academicQualification?: string | null;
+  certificateObtainedDate?: string | null;
+  certificateSource?: string | null;
+  yearsOfExperience?: number;
   phone?: string | null;
   salary?: number;
   subject?: string | null;
@@ -70,6 +82,7 @@ export type TeacherFilters = {
   attendanceFrom?: string;
   attendanceTo?: string;
   limit?: number;
+  offset?: number;
 };
 
 export type UpsertTeacherAttendanceInput = {
@@ -102,6 +115,10 @@ export type TeacherAttendanceFilter = {
 export type TeacherListItem = {
   id: string;
   fullName: string;
+  academicQualification: string | null;
+  certificateObtainedDate: string | null;
+  certificateSource: string | null;
+  yearsOfExperience: number | null;
   phone: string | null;
   salary: number;
   subject: string | null;
@@ -155,6 +172,21 @@ function normalizeNullableText(value?: string | null): string | null {
   if (value === undefined || value === null) return null;
   const trimmed = value.trim();
   return trimmed.length ? trimmed : null;
+}
+
+function normalizeDateText(value?: string | null): string | null {
+  const v = value?.trim();
+  if (!v) return null;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) return null;
+  const d = new Date(`${v}T00:00:00Z`);
+  if (Number.isNaN(d.getTime())) return null;
+  return v.slice(0, 10);
+}
+
+function toNonNegativeInteger(value: number | undefined): number | null {
+  if (value === undefined) return null;
+  if (!Number.isFinite(value) || value < 0) return -1;
+  return Math.floor(value);
 }
 
 function toPositiveAmount(value: number | undefined): number {
@@ -277,16 +309,24 @@ function salaryInstallmentDueDateStringOrNull(value: string | undefined): string
 
 export async function createTeacher(input: CreateTeacherInput): Promise<ActionResult> {
   const fullName = input.fullName?.trim();
+  const academicQualification = normalizeNullableText(input.academicQualification);
+  const certificateObtainedDate = normalizeDateText(input.certificateObtainedDate);
+  const certificateSource = normalizeNullableText(input.certificateSource);
+  const yearsOfExperience = toNonNegativeInteger(input.yearsOfExperience);
   const salary = toPositiveAmount(input.salary);
   const phone = normalizeNullableText(input.phone);
   const subject = normalizeNullableText(input.subject);
 
   if (!fullName) {
-    return { success: false, message: "اسم المعلم مطلوب." };
+    return { success: false, message: "اسم الموظف مطلوب." };
   }
 
   if (salary < 0) {
     return { success: false, message: "قيمة الراتب غير صحيحة." };
+  }
+
+  if (yearsOfExperience !== null && yearsOfExperience < 0) {
+    return { success: false, message: "سنوات الخبرة غير صحيحة." };
   }
 
   if (salary > 0) {
@@ -308,6 +348,10 @@ export async function createTeacher(input: CreateTeacherInput): Promise<ActionRe
     .insert({
       school_id: auth.schoolId,
       full_name: fullName,
+      academic_qualification: academicQualification,
+      certificate_obtained_date: certificateObtainedDate,
+      certificate_source: certificateSource,
+      years_of_experience: yearsOfExperience,
       phone,
       salary,
       subject,
@@ -316,7 +360,7 @@ export async function createTeacher(input: CreateTeacherInput): Promise<ActionRe
     .single();
 
   if (error || !inserted?.id) {
-    return { success: false, message: error?.message ?? "فشل إضافة المعلم." };
+    return { success: false, message: error?.message ?? "فشل إضافة الموظف." };
   }
 
   const newTeacherId = inserted.id as string;
@@ -334,7 +378,7 @@ export async function createTeacher(input: CreateTeacherInput): Promise<ActionRe
       await supabase.from("teachers").delete().eq("id", newTeacherId).eq("school_id", auth.schoolId);
       return {
         success: false,
-        message: instError.message ?? "فشل إنشاء قسط الراتب المرتبط بالمعلم (تأكد من إنشاء الجداول في قاعدة البيانات).",
+        message: instError.message ?? "فشل إنشاء قسط الراتب المرتبط بالموظف (تأكد من إنشاء الجداول في قاعدة البيانات).",
       };
     }
   }
@@ -344,22 +388,22 @@ export async function createTeacher(input: CreateTeacherInput): Promise<ActionRe
     success: true,
     message:
       salary > 0
-        ? "تمت إضافة المعلم وإنشاء قسط الراتب الأول بنفس مبلغ الراتب."
-        : "تمت إضافة المعلم بنجاح.",
+        ? "تمت إضافة الموظف وإنشاء قسط الراتب الأول بنفس مبلغ الراتب."
+        : "تمت إضافة الموظف بنجاح.",
   };
 }
 
 export async function updateTeacher(input: UpdateTeacherInput): Promise<ActionResult> {
   const teacherId = input.id?.trim();
   if (!teacherId) {
-    return { success: false, message: "معرّف المعلم مطلوب." };
+    return { success: false, message: "معرّف الموظف مطلوب." };
   }
 
   const updates: Record<string, unknown> = {};
 
   if (input.fullName !== undefined) {
     const fullName = input.fullName.trim();
-    if (!fullName) return { success: false, message: "اسم المعلم غير صالح." };
+    if (!fullName) return { success: false, message: "اسم الموظف غير صالح." };
     updates.full_name = fullName;
   }
 
@@ -369,6 +413,23 @@ export async function updateTeacher(input: UpdateTeacherInput): Promise<ActionRe
       return { success: false, message: "قيمة الراتب غير صحيحة." };
     }
     updates.salary = salary;
+  }
+
+  if (input.academicQualification !== undefined) {
+    updates.academic_qualification = normalizeNullableText(input.academicQualification);
+  }
+  if (input.certificateObtainedDate !== undefined) {
+    updates.certificate_obtained_date = normalizeDateText(input.certificateObtainedDate);
+  }
+  if (input.certificateSource !== undefined) {
+    updates.certificate_source = normalizeNullableText(input.certificateSource);
+  }
+  if (input.yearsOfExperience !== undefined) {
+    const years = toNonNegativeInteger(input.yearsOfExperience);
+    if (years !== null && years < 0) {
+      return { success: false, message: "سنوات الخبرة غير صحيحة." };
+    }
+    updates.years_of_experience = years;
   }
 
   if (input.phone !== undefined) {
@@ -394,17 +455,17 @@ export async function updateTeacher(input: UpdateTeacherInput): Promise<ActionRe
     .eq("school_id", auth.schoolId);
 
   if (error) {
-    return { success: false, message: error.message ?? "فشل تعديل بيانات المعلم." };
+    return { success: false, message: error.message ?? "فشل تعديل بيانات الموظف." };
   }
 
   revalidateTeachersViews();
-  return { success: true, message: "تم تعديل بيانات المعلم بنجاح." };
+  return { success: true, message: "تم تعديل بيانات الموظف بنجاح." };
 }
 
 export async function deleteTeacher(input: DeleteTeacherInput): Promise<ActionResult> {
   const teacherId = input.id?.trim();
   if (!teacherId) {
-    return { success: false, message: "معرّف المعلم مطلوب." };
+    return { success: false, message: "معرّف الموظف مطلوب." };
   }
 
   const auth = await getAuthContext();
@@ -418,11 +479,11 @@ export async function deleteTeacher(input: DeleteTeacherInput): Promise<ActionRe
     .eq("school_id", auth.schoolId);
 
   if (error) {
-    return { success: false, message: error.message ?? "فشل حذف المعلم." };
+    return { success: false, message: error.message ?? "فشل حذف الموظف." };
   }
 
   revalidateTeachersViews();
-  return { success: true, message: "تم حذف المعلم بنجاح." };
+  return { success: true, message: "تم حذف الموظف بنجاح." };
 }
 
 export async function listTeachers(filters: TeacherFilters = {}): Promise<ListTeachersResult> {
@@ -432,27 +493,41 @@ export async function listTeachers(filters: TeacherFilters = {}): Promise<ListTe
   }
 
   const limit = Math.min(Math.max(filters.limit ?? 200, 1), 1000);
+  const offset = Math.max(0, Math.floor(filters.offset ?? 0));
   const supabase = await createClient();
+
+  let countQuery = supabase
+    .from("teachers")
+    .select("*", { count: "exact", head: true })
+    .eq("school_id", auth.schoolId);
 
   let query = supabase
     .from("teachers")
-    .select("id,full_name,phone,salary,subject,created_at")
+    .select("id,full_name,academic_qualification,certificate_obtained_date,certificate_source,years_of_experience,phone,salary,subject,created_at")
     .eq("school_id", auth.schoolId)
-    .limit(limit)
+    .range(offset, offset + limit - 1)
     .order("created_at", { ascending: false });
 
   if (filters.query?.trim()) {
     const q = filters.query.trim();
-    query = query.or(`full_name.ilike.%${q}%,phone.ilike.%${q}%,subject.ilike.%${q}%`);
+    countQuery = countQuery.or(
+      `full_name.ilike.%${q}%,phone.ilike.%${q}%,subject.ilike.%${q}%,academic_qualification.ilike.%${q}%,certificate_source.ilike.%${q}%`,
+    );
+    query = query.or(
+      `full_name.ilike.%${q}%,phone.ilike.%${q}%,subject.ilike.%${q}%,academic_qualification.ilike.%${q}%,certificate_source.ilike.%${q}%`,
+    );
   }
 
-  const { data: teacherRows, error: teachersError } = await query;
+  const [{ count: totalCount }, { data: teacherRows, error: teachersError }] = await Promise.all([
+    countQuery,
+    query,
+  ]);
   if (teachersError) {
     return {
       success: false,
       teachers: [],
       total: 0,
-      message: teachersError.message ?? "فشل تحميل بيانات المعلمين.",
+      message: teachersError.message ?? "فشل تحميل بيانات الموظفين.",
     };
   }
 
@@ -461,8 +536,8 @@ export async function listTeachers(filters: TeacherFilters = {}): Promise<ListTe
     return {
       success: true,
       teachers: [],
-      total: 0,
-      message: "لا يوجد معلمون مطابقون للبحث.",
+      total: totalCount ?? 0,
+      message: "لا يوجد موظفون مطابقون للبحث.",
     };
   }
 
@@ -600,6 +675,10 @@ export async function listTeachers(filters: TeacherFilters = {}): Promise<ListTe
     return {
       id: row.id,
       fullName: row.full_name,
+      academicQualification: row.academic_qualification,
+      certificateObtainedDate: row.certificate_obtained_date,
+      certificateSource: row.certificate_source,
+      yearsOfExperience: row.years_of_experience,
       phone: row.phone,
       salary: toNumber(row.salary),
       subject: row.subject,
@@ -633,10 +712,10 @@ export async function listTeachers(filters: TeacherFilters = {}): Promise<ListTe
   return {
     success: true,
     teachers: mapped,
-    total: mapped.length,
+    total: totalCount ?? mapped.length,
     message: financeReallyUnavailable
-      ? "تم تحميل المعلمين بنجاح، لكن البيانات المالية غير متاحة بسبب الصلاحيات أو الجداول غير المُنشأة."
-      : "تم تحميل المعلمين بنجاح.",
+      ? "تم تحميل الموظفين بنجاح، لكن البيانات المالية غير متاحة بسبب الصلاحيات أو الجداول غير المُنشأة."
+      : "تم تحميل الموظفين بنجاح.",
   };
 }
 
@@ -647,7 +726,7 @@ export async function upsertTeacherAttendance(
   const attendanceDate = input.attendanceDate?.trim();
 
   if (!teacherId) {
-    return { success: false, message: "معرّف المعلم مطلوب." };
+    return { success: false, message: "معرّف الموظف مطلوب." };
   }
 
   if (!parseDateOnly(attendanceDate)) {
@@ -703,7 +782,7 @@ export async function backfillAbsentForPastTeachersUnmarked(
   ];
 
   if (teacherIds.length === 0) {
-    return { success: true, message: "لا يوجد معلمون للمعالجة.", filled: 0 };
+    return { success: true, message: "لا يوجد موظفون للمعالجة.", filled: 0 };
   }
 
   const auth = await getAuthContext();
@@ -731,7 +810,7 @@ export async function backfillAbsentForPastTeachersUnmarked(
   const missingIds = teacherIds.filter((id) => !alreadyMarked.has(id));
 
   if (missingIds.length === 0) {
-    return { success: true, message: "جميع المعلمين لهم سجل لهذا التاريخ.", filled: 0 };
+    return { success: true, message: "جميع الموظفين لهم سجل لهذا التاريخ.", filled: 0 };
   }
 
   const chunkSize = 150;
@@ -764,7 +843,7 @@ export async function backfillAbsentForPastTeachersUnmarked(
     success: true,
     message:
       filled > 0
-        ? `تم تسجيل غياب تلقائي لـ ${filled} معلمًا في ${attendanceDate}.`
+        ? `تم تسجيل غياب تلقائي لـ ${filled} موظفًا في ${attendanceDate}.`
         : "لم يُضف أي سجل.",
     filled,
   };
@@ -775,7 +854,7 @@ export async function getTeacherAttendance(
 ): Promise<TeacherAttendanceResult> {
   const teacherId = filter.teacherId?.trim();
   if (!teacherId) {
-    return { success: false, rows: [], message: "معرّف المعلم مطلوب." };
+    return { success: false, rows: [], message: "معرّف الموظف مطلوب." };
   }
 
   const auth = await getAuthContext();

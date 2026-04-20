@@ -36,7 +36,7 @@ export function TeacherListFilters({ initialQuery, initialDate, initialMonth }: 
 
   return (
     <section className="bg-white rounded-3xl shadow-lg border p-6 space-y-5">
-      <h2 className="text-lg font-semibold text-gray-800 border-b pb-2">تصفية المعلمين</h2>
+      <h2 className="text-lg font-semibold text-gray-800 border-b pb-2">تصفية الموظفين</h2>
       <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
         <div className="space-y-2">
           <Label htmlFor="q">بحث</Label>
@@ -45,7 +45,7 @@ export function TeacherListFilters({ initialQuery, initialDate, initialMonth }: 
             name="q"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="اسم، هاتف، أو مادة"
+            placeholder="اسم، مؤهل، مصدر شهادة، هاتف، أو مادة"
             className="rounded-xl focus-visible:ring-2 focus-visible:ring-yellow-400"
           />
         </div>

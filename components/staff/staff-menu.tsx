@@ -18,9 +18,9 @@ const staffMenuItems: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/staff/students", label: "اضافة طالب", icon: UserPlus },
   { href: "/staff/studentlist", label: "قائمة الطلاب", icon: List },
   { href: "/staff/student-installments", label: "أقساط ودفعات الطلاب", icon: Wallet },
-  { href: "/staff/addteachers", label: "إضافة معلم", icon: UserPlus },
-  { href: "/staff/teacherslist", label: "قائمة المعلمين", icon: Users },
-  { href: "/staff/teacher-installments", label: "رواتب وأقساط المعلمين", icon: PiggyBank },
+  { href: "/staff/addteachers", label: "إضافة موظف", icon: UserPlus },
+  { href: "/staff/teacherslist", label: "قائمة الموظفين", icon: Users },
+  { href: "/staff/teacher-installments", label: "رواتب وأقساط الموظفين", icon: PiggyBank },
   { href: "/staff/expenses", label: "المصاريف", icon: TrendingDown },
   { href: "/staff/revenues", label: "الإيرادات", icon: TrendingUp },
 ];

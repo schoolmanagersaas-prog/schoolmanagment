@@ -58,6 +58,10 @@ export default async function StaffAddTeachersPage({ searchParams }: AddTeachers
   async function createTeacherAction(formData: FormData) {
     "use server";
     const fullName = String(formData.get("fullName") ?? "").trim();
+    const academicQualification = asNullableText(formData.get("academicQualification"));
+    const certificateObtainedDate = asNullableText(formData.get("certificateObtainedDate"));
+    const certificateSource = asNullableText(formData.get("certificateSource"));
+    const yearsOfExperience = asNullableNumber(formData.get("yearsOfExperience"));
     const phone = asNullableText(formData.get("phone"));
     const subject = asNullableText(formData.get("subject"));
     const salary = asNullableNumber(formData.get("salary"));
@@ -65,6 +69,10 @@ export default async function StaffAddTeachersPage({ searchParams }: AddTeachers
 
     const result = await createTeacher({
       fullName,
+      academicQualification,
+      certificateObtainedDate: certificateObtainedDate ?? undefined,
+      certificateSource,
+      yearsOfExperience,
       phone,
       subject,
       salary,
@@ -94,14 +102,34 @@ export default async function StaffAddTeachersPage({ searchParams }: AddTeachers
         <form action={createTeacherAction} className="space-y-5">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="fullName">الاسم الكامل</Label>
+              <Label htmlFor="fullName">الاسم الثلاثي</Label>
               <Input
                 id="fullName"
                 name="fullName"
                 required
-                placeholder="اسم المعلم"
+                placeholder="اسم الموظف"
                 className="rounded-xl focus:ring-2 focus:ring-yellow-400"
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="academicQualification">المؤهل العلمي</Label>
+              <Input id="academicQualification" name="academicQualification" className="rounded-xl focus:ring-2 focus:ring-yellow-400" />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="certificateObtainedDate">تاريخ الحصول على الشهادة</Label>
+              <Input id="certificateObtainedDate" name="certificateObtainedDate" type="date" className="rounded-xl focus:ring-2 focus:ring-yellow-400" />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="certificateSource">مصدر الشهادة</Label>
+              <Input id="certificateSource" name="certificateSource" className="rounded-xl focus:ring-2 focus:ring-yellow-400" />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="yearsOfExperience">سنوات الخبرة</Label>
+              <Input id="yearsOfExperience" name="yearsOfExperience" type="number" min="0" step="1" defaultValue="0" className="rounded-xl focus:ring-2 focus:ring-yellow-400" />
             </div>
 
             <div className="space-y-2">
@@ -151,7 +179,7 @@ export default async function StaffAddTeachersPage({ searchParams }: AddTeachers
               size="default"
               className="rounded-md bg-Yellow px-4 text-foreground shadow-sm hover:bg-Yellow/90 hover:scale-[1.02] transition-transform"
             >
-              إضافة المعلم
+              إضافة الموظف
             </Button>
           </div>
         </form>
