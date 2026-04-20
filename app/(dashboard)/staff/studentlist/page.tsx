@@ -440,11 +440,8 @@ export default async function StaffStudentListPage({ searchParams }: StudentList
                   const displayId = offset + index + 1;
                   return (
                     <tr key={student.id} className="hover:bg-slate-100 border-b even:bg-slate-50">
-                      <td className="w-full md:w-auto flex flex-row gap-3 m-3">
-                        <div className="flex size-10 items-center justify-center rounded-full bg-sky/20 text-sm font-bold text-sky-700 md:hidden xl:flex">
-                          {student.fullName.slice(0, 1)}
-                        </div>
-                        <div className="flex flex-col">
+                      <td className="w-full md:w-auto m-3 pl-2">
+                        <div className="mr-3 flex flex-col">
                           <h3 className="font-semibold text-gray-900">{student.firstName}</h3>
                           <h4 className="text-xs text-gray-500">{student.className ?? "بدون صف"}</h4>
                         </div>
