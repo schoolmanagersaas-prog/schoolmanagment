@@ -2,11 +2,11 @@ import { backfillAbsentForPastUnmarked, createStudent, deleteStudent, listStuden
 import { Button } from "@/components/ui/button";
 import { resolveSchoolId } from "@/lib/auth/resolve-school-id";
 import { createClient } from "@/lib/supabase/server";
+import { ArrowUpDown, Filter, Search } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { DailyAttendanceCheckbox } from "./daily-attendance-checkbox";
 import { StudentCreateDialog, StudentRowActions } from "./student-crud-actions";
-import { StudentListFilters } from "./student-list-filters";
 
 const STUDENT_PAGE_SIZE = 10;
 
@@ -287,10 +287,10 @@ export default async function StaffStudentListPage({ searchParams }: StudentList
       classId: asNullableText(formData.get("classId")),
       gender: (String(formData.get("gender") ?? "male").trim() === "female" ? "female" : "male") as "male" | "female",
       baseTuition: asNullableNumber(formData.get("baseTuition")),
-      installmentDueDate: asNullableText(formData.get("installmentDueDate")) ?? undefined,
+      installmentDueDate: new Date().toISOString().slice(0, 10),
       guardianPhone: asNullableText(formData.get("guardianPhone")),
       address: asNullableText(formData.get("address")),
-      status: "active",
+      status: String(formData.get("status") ?? "active").trim() === "withdrawn" ? "withdrawn" : "active",
     });
     redirect(
       buildStudentListHref({
@@ -354,35 +354,8 @@ export default async function StaffStudentListPage({ searchParams }: StudentList
   }
 
   return (
-    <div className="p-6 max-w-6xl mx-auto flex flex-col gap-6" dir="rtl">
-      <section className="rounded-3xl border bg-gradient-to-l from-sky/35 via-background to-Yellow/25 p-5 shadow-sm sm:p-6">
-        <div className="flex flex-col gap-3">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-gray-900">قائمة الطلاب</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {schoolName} · متابعة الحضور اليومي ونسبة الحضور الشهرية للطلاب.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2 text-xs">
-            <span className="rounded-full border border-border/60 bg-background/80 px-3 py-1.5 text-foreground">
-              عدد الطلاب: {studentsResult.success ? studentsResult.total.toLocaleString("en-US") : "—"}
-            </span>
-            <span className="rounded-full border border-border/60 bg-background/80 px-3 py-1.5 text-foreground">
-              تاريخ الحضور: {attendanceDate}
-            </span>
-            <span className="rounded-full border border-border/60 bg-background/80 px-3 py-1.5 text-foreground">
-              شهر النسبة: {monthRange.value}
-            </span>
-          </div>
-        </div>
-      </section>
-
-      <StudentListFilters
-        classes={(classes ?? []) as { id: string; name: string }[]}
-        initialQuery={query ?? ""}
-        initialClassId={classId ?? ""}
-        initialDate={attendanceDate}
-      />
+    <div className="bg-white p-4 rounded-md mt-4 max-w-6xl mx-auto" dir="rtl">
+      <p className="mb-2 text-xs text-muted-foreground">{schoolName}</p>
 
       {flashStatus && flashMessage ? (
         <div
@@ -396,115 +369,132 @@ export default async function StaffStudentListPage({ searchParams }: StudentList
         </div>
       ) : null}
 
-      <section className="bg-white rounded-3xl shadow-lg border overflow-hidden">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 bg-gray-50/80 px-6 py-4 text-sm">
-          <div className="font-semibold text-gray-800">
-            جدول الطلاب والحضور
-            {studentsResult.success && studentsResult.total > 0 ? (
-              <span className="mr-2 font-normal text-muted-foreground">
-                · عرض {(page - 1) * STUDENT_PAGE_SIZE + 1}–
-                {Math.min(page * STUDENT_PAGE_SIZE, studentsResult.total).toLocaleString("en-US")}
-              </span>
-            ) : null}
-          </div>
-          <div className="flex items-center gap-2">
-            <StudentCreateDialog
-              classes={(classes ?? []) as { id: string; name: string }[]}
-              preserve={preserveState}
-              createStudentAction={createStudentAction}
+      <section className="bg-white rounded-md overflow-hidden">
+        <div className="flex items-center justify-between">
+          <h1 className="hidden md:block text-lg font-semibold mr-2">قائمة الطلاب</h1>
+          <form method="get" className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
+            <div className="relative w-full md:w-auto">
+              <Search className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <input
+                name="q"
+                defaultValue={query ?? ""}
+                placeholder="ابحث باسم الطالب أو رقم ولي الأمر"
+                className="h-8 w-full md:w-64 rounded-md border border-input bg-background pr-9 pl-3 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-400"
+              />
+            </div>
+
+            <select
+              name="classId"
+              defaultValue={classId ?? ""}
+              className="h-8 rounded-md border border-input bg-background px-3 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-400"
+            >
+              <option value="">كل الصفوف</option>
+              {((classes ?? []) as { id: string; name: string }[]).map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+
+            <input
+              type="date"
+              name="date"
+              defaultValue={attendanceDate}
+              className="h-8 rounded-md border border-input bg-background px-3 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-400"
             />
-            {!studentsResult.success ? <span className="text-sm text-red-700">{studentsResult.message}</span> : null}
-          </div>
+            <button type="submit" className="hidden" aria-hidden />
+            <div className="flex items-center gap-4">
+              <StudentCreateDialog
+                classes={(classes ?? []) as { id: string; name: string }[]}
+                preserve={preserveState}
+                createStudentAction={createStudentAction}
+              />
+              <button type="button" className="w-8 h-8 flex items-center justify-center rounded-full bg-Yellow p-2">
+                <Filter className="size-4" />
+              </button>
+              <button type="button" className="w-8 h-8 flex items-center justify-center rounded-full bg-Yellow p-2">
+                <ArrowUpDown className="size-4" />
+              </button>
+            </div>
+          </form>
         </div>
+        {!studentsResult.success ? <span className="text-sm text-red-700">{studentsResult.message}</span> : null}
 
         {!studentsResult.success ? null : studentsResult.students.length === 0 ? (
           <p className="p-8 text-center text-sm text-muted-foreground">لا يوجد طلاب مطابقون.</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[860px] border-collapse text-sm">
+            <table className="w-full min-w-[860px] border-collapse text-sm mt-4">
               <thead>
-                <tr className="border-b bg-muted/50 text-right text-gray-800">
-                  <th className="px-4 py-3 font-semibold">الاسم</th>
-                  <th className="px-4 py-3 font-semibold">الصف</th>
-                  <th className="px-4 py-3 font-semibold">النوع</th>
-                  <th className="px-4 py-3 font-semibold">الحالة</th>
-                  <th className="px-4 py-3 font-semibold">
-                    نسبة الحضور
-                    <span className="mt-0.5 block text-xs font-normal text-muted-foreground">{monthRange.value}</span>
-                  </th>
-                  <th className="px-4 py-3 text-center font-semibold">حاضر</th>
-                  <th className="px-4 py-3 text-right font-semibold whitespace-nowrap w-[1%]">الإجراءات</th>
+                <tr className="border-b bg-white text-right text-gray-800">
+                  <th className="px-4 py-3 font-semibold text-center">الاسم الكامل</th>
+                  <th className="hidden md:table-cell px-4 py-3 font-semibold text-center">الصف</th>
+                  <th className="hidden md:table-cell px-4 py-3 font-semibold text-center">النوع</th>
+                  <th className="hidden lg:table-cell px-4 py-3 font-semibold text-center">القسط الأساسي</th>
+                  <th className="hidden lg:table-cell px-4 py-3 font-semibold text-center">هاتف ولي الأمر</th>
+                  <th className="hidden xl:table-cell px-4 py-3 font-semibold text-center">العنوان</th>
+                  <th className="hidden md:table-cell px-4 py-3 font-semibold text-center">نسبة الحضور</th>
+                  <th className="px-4 py-3 text-start font-semibold whitespace-nowrap">الاجراءات</th>
                 </tr>
               </thead>
               <tbody>
                 {studentsResult.students.map((student) => {
                   const isPresent = presentByStudent.get(student.id) === true;
                   const monthly = monthlyStatsByStudent.get(student.id);
+                  const studentIdLabel = student.id.slice(0, 8).toUpperCase();
+                  const attendedDays = monthly?.presentDays ?? 0;
+                  const fixedSchoolDays = 22;
+                  const rate = Math.round((attendedDays / fixedSchoolDays) * 1000) / 10;
                   return (
-                    <tr key={student.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50/80">
-                      <td className="px-4 py-3 font-medium text-gray-900">{student.fullName}</td>
-                      <td className="px-4 py-3 text-muted-foreground">{student.className ?? "—"}</td>
-                      <td className="px-4 py-3">{student.gender === "male" ? "ذكر" : "أنثى"}</td>
-                      <td className="px-4 py-3">
-                        {student.status === "active" ? (
-                          <span className="text-green-700">نشط</span>
-                        ) : (
-                          <span className="text-muted-foreground">منسحب</span>
-                        )}
+                    <tr key={student.id} className="hover:bg-slate-100 border-b even:bg-slate-50">
+                      <td className="w-full md:w-auto flex flex-row gap-3 m-3">
+                        <div className="flex size-10 items-center justify-center rounded-full bg-sky/20 text-sm font-bold text-sky-700 md:hidden xl:flex">
+                          {student.fullName.slice(0, 1)}
+                        </div>
+                        <div className="flex flex-col">
+                          <h3 className="font-semibold text-gray-900">{student.fullName}</h3>
+                          <h4 className="text-xs text-gray-500">{student.className ?? "بدون صف"}</h4>
+                        </div>
                       </td>
-                      <td className="px-4 py-3 text-center">
-                        {(() => {
-                          const presentDays = monthly?.presentDays ?? 0;
-                          const hasAnyRecord = (monthly?.recordedDays ?? 0) > 0;
-                          if (!hasAnyRecord && presentDays === 0) {
-                            return (
-                              <span
-                                className="text-muted-foreground"
-                                title="لا توجد أيام مسجّلة في هذا الشهر"
-                              >
-                                —
-                              </span>
-                            );
-                          }
-                          const rate = monthly?.ratePercent ?? 0;
-                          const dim = monthly?.daysInSchoolMonth ?? schoolDaysInMonth;
-                          return (
-                            <div className="space-y-0.5">
-                              <div className="font-semibold tabular-nums text-foreground">
-                                {rate.toLocaleString("en-US")}%
-                              </div>
-                              <div className="text-xs text-muted-foreground">
-                                {presentDays.toLocaleString("en-US")} يوم حضور من أصل{" "}
-                                {dim.toLocaleString("en-US")} يوم دوام في الشهر
-                              </div>
-                            </div>
-                          );
-                        })()}
+                      <td className="hidden md:table-cell px-4 py-3 text-center">{student.className ?? "—"}</td>
+                      <td className="hidden md:table-cell px-4 py-3 text-center">
+                        {student.gender === "male" ? "ذكر" : "أنثى"}
                       </td>
-                      <td className="px-4 py-3 text-center">
-                        <DailyAttendanceCheckbox
-                          studentId={student.id}
-                          attendanceDate={attendanceDate}
-                          initialPresent={isPresent}
-                        />
+                      <td className="hidden lg:table-cell px-4 py-3 text-center">
+                        {student.baseTuition.toLocaleString("en-US")}
                       </td>
-                      <td className="px-4 py-3 text-right">
-                        <StudentRowActions
-                          student={{
-                            id: student.id,
-                            fullName: student.fullName,
-                            classId: student.classId,
-                            gender: student.gender,
-                            baseTuition: student.baseTuition,
-                            guardianPhone: student.guardianPhone,
-                            address: student.address,
-                            status: student.status,
-                          }}
-                          classes={(classes ?? []) as { id: string; name: string }[]}
-                          preserve={preserveState}
-                          updateStudentAction={updateStudentAction}
-                          deleteStudentAction={deleteStudentAction}
-                        />
+                      <td className="hidden lg:table-cell px-4 py-3 text-center">{student.guardianPhone ?? "—"}</td>
+                      <td className="hidden xl:table-cell px-4 py-3 text-center text-muted-foreground">
+                        {student.address ?? "—"}
+                      </td>
+                      <td className="hidden md:table-cell px-4 py-3 text-center">
+                        <div className="font-semibold tabular-nums text-foreground">{rate.toLocaleString("en-US")}%</div>
+                        <div className="text-xs text-muted-foreground">{attendedDays.toLocaleString("en-US")} يوم من أصل 22</div>
+                      </td>
+                      <td>
+                        <div className="flex items-center gap-2">
+                          <DailyAttendanceCheckbox
+                            studentId={student.id}
+                            attendanceDate={attendanceDate}
+                            initialPresent={isPresent}
+                          />
+                          <StudentRowActions
+                            student={{
+                              id: student.id,
+                              fullName: student.fullName,
+                              classId: student.classId,
+                              gender: student.gender,
+                              baseTuition: student.baseTuition,
+                              guardianPhone: student.guardianPhone,
+                              address: student.address,
+                              status: student.status,
+                            }}
+                            classes={(classes ?? []) as { id: string; name: string }[]}
+                            preserve={preserveState}
+                            updateStudentAction={updateStudentAction}
+                            deleteStudentAction={deleteStudentAction}
+                          />
+                        </div>
                       </td>
                     </tr>
                   );
@@ -514,13 +504,13 @@ export default async function StaffStudentListPage({ searchParams }: StudentList
           </div>
         )}
 
-        <div className="flex flex-wrap items-center justify-center gap-3 border-t border-gray-100 bg-gray-50/50 px-6 py-4 text-sm">
+        <div className="flex items-center justify-between text-gray-500 border-t border-white/10 px-4 py-3 sm:px-6">
           {!studentsResult.success || page <= 1 || listTotal === 0 ? (
-            <Button type="button" variant="outline" className="rounded-md" disabled>
+            <Button type="button" className="py-2 px-4 rounded-md bg-slate-200 text-xs font-semibold" disabled>
               السابق
             </Button>
           ) : (
-            <Button variant="outline" className="rounded-md" asChild>
+            <Button className="py-2 px-4 rounded-md bg-slate-200 text-xs font-semibold" asChild>
               <Link
                 href={buildStudentListHref({
                   q: query,
@@ -533,17 +523,17 @@ export default async function StaffStudentListPage({ searchParams }: StudentList
               </Link>
             </Button>
           )}
-          <span className="tabular-nums text-muted-foreground">
+          <span className="tabular-nums text-muted-foreground text-xs">
             {studentsResult.success
               ? `صفحة ${page.toLocaleString("en-US")} من ${totalPages.toLocaleString("en-US")}`
               : "—"}
           </span>
           {!studentsResult.success || page >= totalPages || listTotal === 0 ? (
-            <Button type="button" variant="outline" className="rounded-md" disabled>
+            <Button type="button" className="py-2 px-4 rounded-md bg-slate-200 text-xs font-semibold" disabled>
               التالي
             </Button>
           ) : (
-            <Button variant="outline" className="rounded-md" asChild>
+            <Button className="py-2 px-4 rounded-md bg-slate-200 text-xs font-semibold" asChild>
               <Link
                 href={buildStudentListHref({
                   q: query,

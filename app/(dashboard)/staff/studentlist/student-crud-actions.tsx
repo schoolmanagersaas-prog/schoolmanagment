@@ -1,14 +1,8 @@
 "use client";
 
 import { useRef } from "react";
-import { ChevronDown, Plus } from "lucide-react";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -69,11 +63,11 @@ export function StudentCreateDialog({ classes, preserve, createStudentAction }: 
     <>
       <Button
         type="button"
-        className="gap-1 rounded-md bg-Yellow text-foreground hover:bg-Yellow/90"
+        className="h-8 w-8 rounded-full bg-Yellow p-0 text-foreground hover:bg-Yellow/90"
         onClick={() => addRef.current?.showModal()}
+        title="إضافة طالب"
       >
         <Plus className="size-4" />
-        إضافة طالب
       </Button>
 
       <dialog
@@ -120,14 +114,17 @@ export function StudentCreateDialog({ classes, preserve, createStudentAction }: 
               <Label htmlFor="create-baseTuition">القسط الأساسي</Label>
               <Input id="create-baseTuition" name="baseTuition" type="number" min="0" step="0.01" defaultValue="0" />
             </div>
-            <div className="space-y-1 md:col-span-2">
-              <Label htmlFor="create-installmentDueDate">تاريخ استحقاق القسط</Label>
-              <Input
-                id="create-installmentDueDate"
-                name="installmentDueDate"
-                type="date"
-                defaultValue={new Date().toISOString().slice(0, 10)}
-              />
+            <div className="space-y-1">
+              <Label htmlFor="create-status">الحالة</Label>
+              <select
+                id="create-status"
+                name="status"
+                defaultValue="active"
+                className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
+              >
+                <option value="active">نشط</option>
+                <option value="withdrawn">منسحب</option>
+              </select>
             </div>
             <div className="space-y-1">
               <Label htmlFor="create-guardianPhone">هاتف ولي الأمر</Label>
@@ -164,34 +161,24 @@ export function StudentRowActions({
 
   return (
     <>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button type="button" variant="outline" size="sm" className="gap-1">
-            إجراءات
-            <ChevronDown className="size-3.5 opacity-70" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="min-w-[10rem]">
-          <DropdownMenuItem
-            className="cursor-pointer"
-            onSelect={(e) => {
-              e.preventDefault();
-              editRef.current?.showModal();
-            }}
-          >
-            تعديل الطالب
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            className="cursor-pointer text-destructive focus:text-destructive"
-            onSelect={(e) => {
-              e.preventDefault();
-              delRef.current?.showModal();
-            }}
-          >
-            حذف الطالب
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          className="h-8 w-8 flex items-center justify-center rounded-full bg-sky text-white"
+          onClick={() => editRef.current?.showModal()}
+          title="تعديل"
+        >
+          <Pencil className="size-4" />
+        </button>
+        <button
+          type="button"
+          className="h-8 w-8 flex items-center justify-center rounded-full bg-red-500 text-white"
+          onClick={() => delRef.current?.showModal()}
+          title="حذف"
+        >
+          <Trash2 className="size-4" />
+        </button>
+      </div>
 
       <dialog
         ref={editRef}

@@ -74,18 +74,18 @@ export default async function StaffStudentsPage({ searchParams }: StudentsPagePr
     const guardianPhone = asNullableText(formData.get("guardianPhone"));
     const address = asNullableText(formData.get("address"));
     const baseTuition = asNullableNumber(formData.get("baseTuition"));
-    const installmentDueDate = asNullableText(formData.get("installmentDueDate"));
     const genderValue = String(formData.get("gender") ?? "male") as "male" | "female";
+    const statusValue = String(formData.get("status") ?? "active").trim() === "withdrawn" ? "withdrawn" : "active";
 
     const result = await createStudent({
       fullName,
       classId: selectedClassId,
       gender: genderValue,
       baseTuition,
-      installmentDueDate: installmentDueDate ?? undefined,
+      installmentDueDate: new Date().toISOString().slice(0, 10),
       guardianPhone,
       address,
-      status: "active",
+      status: statusValue,
     });
 
     redirect(buildRedirectUrl(result.success ? "success" : "error", result.message));
@@ -175,16 +175,18 @@ export default async function StaffStudentsPage({ searchParams }: StudentsPagePr
               />
             </div>
 
-            {/* التاريخ */}
-            <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="installmentDueDate">تاريخ استحقاق القسط</Label>
-              <Input
-                id="installmentDueDate"
-                name="installmentDueDate"
-                type="date"
-                defaultValue={new Date().toISOString().slice(0, 10)}
-                className="rounded-xl focus:ring-2 focus:ring-yellow-400"
-              />
+            {/* الحالة */}
+            <div className="space-y-2">
+              <Label htmlFor="status">الحالة</Label>
+              <select
+                id="status"
+                name="status"
+                defaultValue="active"
+                className="w-full h-10 rounded-xl border px-3 focus:ring-2 focus:ring-yellow-400"
+              >
+                <option value="active">نشط</option>
+                <option value="withdrawn">منسحب</option>
+              </select>
             </div>
 
             {/* الهاتف */}
